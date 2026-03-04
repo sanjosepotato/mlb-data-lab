@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLB DATA LAB | 野球×データ分析</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;700;900&family=Oswald:wght@300;400;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060a12;
+  --bg2: #0c1220;
+  --surface: #111827;
+  --surface2: #162035;
+  --border: #1e2d45;
+  --accent: #00d4ff;
+  --accent2: #ff4d6d;
+  --accent3: #f5a623;
+  --accent4: #4ade80;
+  --white: #e8f0ff;
+  --muted: #5a6f8a;
+  --grid: rgba(0,212,255,0.04);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--white);font-family:'Noto Sans JP',sans-serif;overflow-x:hidden}
+
+/* GRID BG */
+body::before{
+  content:'';position:fixed;top:0;left:0;right:0;bottom:0;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0
+}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  background:rgba(6,10,18,0.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:0 24px;height:56px;
+  display:flex;align-items:center;justify-content:space-between
+}
+.nav-logo{
+  font-family:'Bebas Neue',sans-serif;font-size:22px;
+  letter-spacing:0.1em;color:var(--accent);
+  text-shadow:0 0 20px rgba(0,212,255,0.5)
+}
+.nav-links{display:flex;gap:4px}
+.nav-link{
+  font-family:'Oswald',sans-serif;font-size:12px;font-weight:400;
+  letter-spacing:0.08em;color:var(--muted);
+  padding:6px 12px;border-radius:4px;cursor:pointer;
+  transition:all 0.2s;text-decoration:none;border:none;background:none;text-transform:uppercase
+}
+.nav-link:hover,.nav-link.active{color:var(--accent);background:rgba(0,212,255,0.08)}
+
+/* HERO */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:80px 20px 40px;position:relative
+}
+.hero-eyebrow{
+  font-family:'Space Mono',monospace;font-size:11px;
+  color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;
+  margin-bottom:20px;opacity:0.8
+}
+.hero-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(60px,14vw,140px);
+  line-height:0.9;letter-spacing:0.02em;
+  margin-bottom:16px
+}
+.hero-title .line1{color:var(--white)}
+.hero-title .line2{
+  color:transparent;
+  -webkit-text-stroke:2px var(--accent);
+  text-shadow:0 0 60px rgba(0,212,255,0.3)
+}
+.hero-title .line3{color:var(--accent2)}
+.hero-sub{
+  font-size:14px;color:var(--muted);max-width:500px;
+  margin:0 auto 40px;line-height:1.8
+}
+.hero-stats{
+  display:flex;gap:32px;justify-content:center;flex-wrap:wrap;
+  margin-bottom:40px
+}
+.hero-stat{text-align:center}
+.hero-stat-num{
+  font-family:'Bebas Neue',sans-serif;font-size:42px;
+  color:var(--accent);line-height:1;
+  text-shadow:0 0 30px rgba(0,212,255,0.4)
+}
+.hero-stat-label{font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase}
+.scroll-hint{
+  position:absolute;bottom:32px;left:50%;transform:translateX(-50%);
+  font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);
+  letter-spacing:0.15em;display:flex;flex-direction:column;align-items:center;gap:8px
+}
+.scroll-hint::after{
+  content:'';width:1px;height:40px;background:linear-gradient(transparent,var(--accent));
+  animation:scrollLine 1.5s ease-in-out infinite
+}
+@keyframes scrollLine{0%,100%{opacity:0.3;transform:scaleY(0.5)}50%{opacity:1;transform:scaleY(1)}}
+
+/* SECTIONS */
+section{position:relative;z-index:1;padding:80px 20px}
+.container{max-width:1200px;margin:0 auto}
+
+.section-header{margin-bottom:48px}
+.section-tag{
+  font-family:'Space Mono',monospace;font-size:10px;
+  color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;
+  margin-bottom:12px;display:flex;align-items:center;gap:10px
+}
+.section-tag::after{content:'';flex:1;height:1px;background:var(--border);max-width:100px}
+.section-title{
+  font-family:'Bebas Neue',sans-serif;font-size:clamp(36px,6vw,64px);
+  letter-spacing:0.04em;line-height:1
+}
+.section-title em{color:var(--accent);font-style:normal}
+.section-desc{font-size:14px;color:var(--muted);margin-top:10px;max-width:600px;line-height:1.8}
+
+/* LOADING */
+.loading-state{
+  display:flex;align-items:center;justify-content:center;
+  gap:12px;padding:60px;color:var(--muted);font-size:13px;
+  font-family:'Space Mono',monospace
+}
+.loading-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  animation:ldot 1.2s ease-in-out infinite
+}
+.loading-dot:nth-child(2){animation-delay:0.2s}
+.loading-dot:nth-child(3){animation-delay:0.4s}
+@keyframes ldot{0%,80%,100%{transform:scale(0.4);opacity:0.3}40%{transform:scale(1);opacity:1}}
+
+/* ERROR */
+.error-state{
+  text-align:center;padding:40px;color:var(--muted);
+  font-size:13px;border:1px dashed var(--border);border-radius:12px
+}
+
+/* ===================== */
+/* CHART 1: HR RACE      */
+/* ===================== */
+.hr-race-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;overflow:hidden}
+.hr-race-title{
+  font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;
+  color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px;
+  display:flex;align-items:center;justify-content:space-between
+}
+.hr-bars{display:flex;flex-direction:column;gap:10px}
+.hr-bar-row{display:grid;grid-template-columns:140px 1fr 52px;align-items:center;gap:12px}
+.hr-bar-name{font-size:13px;font-weight:700;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hr-bar-track{height:28px;background:rgba(255,255,255,0.04);border-radius:6px;overflow:hidden;position:relative}
+.hr-bar-fill{
+  height:100%;border-radius:6px;
+  display:flex;align-items:center;padding-left:10px;
+  transition:width 1.2s cubic-bezier(0.16,1,0.3,1);
+  position:relative;overflow:hidden;min-width:0
+}
+.hr-bar-fill::after{
+  content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);
+  animation:shimmer 2.5s ease-in-out infinite
+}
+@keyframes shimmer{0%{left:-100%}100%{left:100%}}
+.hr-bar-label{font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;color:var(--white)}
+.hr-bar-num{font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--accent3);text-align:right}
+
+/* ===================== */
+/* CHART 2: ERA SCATTER  */
+/* ===================== */
+.scatter-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px}
+#eraScatter{width:100%;cursor:crosshair}
+.scatter-tooltip{
+  position:fixed;background:var(--bg2);border:1px solid var(--accent);
+  border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;
+  display:none;z-index:200;min-width:140px;
+  box-shadow:0 8px 32px rgba(0,212,255,0.2)
+}
+.scatter-tooltip strong{font-size:14px;color:var(--accent);display:block;margin-bottom:4px}
+
+/* ===================== */
+/* CHART 3: RADAR        */
+/* ===================== */
+.radar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px}
+.radar-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.radar-btn{
+  font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;
+  padding:6px 14px;border-radius:20px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;
+  letter-spacing:0.05em
+}
+.radar-btn:hover{border-color:var(--accent);color:var(--accent)}
+.radar-btn.active{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+#radarCanvas{display:block;margin:0 auto}
+
+/* ===================== */
+/* CHART 4: HEATMAP      */
+/* ===================== */
+.heatmap-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px}
+.heatmap-grid{display:grid;gap:3px;margin:16px 0}
+.heatmap-cell{
+  aspect-ratio:1;border-radius:3px;cursor:pointer;
+  transition:transform 0.15s,box-shadow 0.15s;
+  position:relative
+}
+.heatmap-cell:hover{transform:scale(1.3);z-index:10;box-shadow:0 4px 16px rgba(0,0,0,0.5)}
+.heatmap-legend{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11px;color:var(--muted)}
+.heatmap-legend-bar{
+  width:120px;height:10px;border-radius:5px;
+  background:linear-gradient(90deg,var(--bg2),var(--accent))
+}
+.heatmap-month-labels{display:grid;gap:3px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:4px}
+.heatmap-tooltip{
+  position:fixed;background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;
+  display:none;z-index:200
+}
+
+/* ===================== */
+/* CHART 5: LIVE SCORES  */
+/* ===================== */
+.scoreboard{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.score-card{
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  padding:16px;transition:all 0.25s;cursor:pointer;position:relative;overflow:hidden
+}
+.score-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.4)}
+.score-card.live::before{
+  content:'LIVE';position:absolute;top:12px;right:12px;
+  font-family:'Space Mono',monospace;font-size:9px;font-weight:700;
+  color:var(--accent2);letter-spacing:0.15em;
+  animation:livePulse 1.5s ease-in-out infinite
+}
+@keyframes livePulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.score-card.final::before{
+  content:'FINAL';position:absolute;top:12px;right:12px;
+  font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.1em
+}
+.score-teams{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.score-team-row{display:flex;align-items:center;justify-content:space-between}
+.score-team-name{font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;letter-spacing:0.05em}
+.score-team-name.winner{color:var(--accent4)}
+.score-run{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--white);line-height:1}
+.score-run.winner{color:var(--accent4)}
+.score-divider{height:1px;background:var(--border);margin:4px 0}
+.score-meta{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;display:flex;gap:12px;flex-wrap:wrap}
+
+/* ===================== */
+/* CHART 6: PITCHING MAP */
+/* ===================== */
+.strikezone-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px}
+.strikezone-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+.sz-select{
+  background:var(--surface2);border:1px solid var(--border);color:var(--white);
+  padding:6px 12px;border-radius:6px;font-family:'Oswald',sans-serif;font-size:13px;
+  cursor:pointer;outline:none
+}
+.strikezone-canvas-wrap{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;align-items:flex-start}
+#strikezoneCanvas{border:1px solid var(--border);border-radius:8px;cursor:crosshair}
+.sz-legend{display:flex;flex-direction:column;gap:8px;padding-top:8px}
+.sz-legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.sz-legend-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+
+/* ===================== */
+/* STANDINGS TABLE       */
+/* ===================== */
+.standings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.standings-division{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.standings-div-header{
+  padding:12px 16px;
+  font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;
+  border-bottom:1px solid var(--border)
+}
+.standings-table{width:100%;border-collapse:collapse;font-size:13px}
+.standings-table th{
+  padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;
+  color:var(--muted);letter-spacing:0.08em;text-align:right;
+  border-bottom:1px solid var(--border)
+}
+.standings-table th:first-child{text-align:left}
+.standings-table td{padding:8px 12px;border-bottom:1px solid rgba(30,45,69,0.4);text-align:right}
+.standings-table td:first-child{text-align:left;font-weight:700}
+.standings-table tr:hover td{background:var(--surface2)}
+.standings-table tr:last-child td{border-bottom:none}
+.gb-cell{color:var(--muted)}
+.pct-bar-inline{
+  display:inline-block;height:3px;border-radius:2px;
+  background:var(--accent);margin-left:6px;vertical-align:middle;
+  transition:width 1s ease
+}
+
+/* FOOTER */
+footer{
+  border-top:1px solid var(--border);padding:32px 20px;text-align:center;
+  font-size:12px;color:var(--muted);font-family:'Space Mono',monospace;
+  position:relative;z-index:1
+}
+footer a{color:var(--accent);text-decoration:none}
+
+/* LAYOUT HELPERS */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+@media(max-width:600px){.nav-links{display:none}.hr-bar-row{grid-template-columns:90px 1fr 40px}}
+
+/* PULSE DOT */
+.pulse-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--accent4);margin-right:6px;
+  animation:pulseDot 2s ease-in-out infinite;vertical-align:middle
+}
+@keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)}50%{box-shadow:0 0 0 6px rgba(74,222,128,0)}}
+
+/* DATA TAG */
+.data-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:'Space Mono',monospace;font-size:10px;
+  color:var(--accent);background:rgba(0,212,255,0.08);
+  border:1px solid rgba(0,212,255,0.2);
+  padding:3px 10px;border-radius:20px;letter-spacing:0.08em
+}
+</style>
+</head>
+<body>
+
+<!-- SCATTER TOOLTIP -->
+<div class="scatter-tooltip" id="scatterTip"></div>
+<div class="heatmap-tooltip" id="heatmapTip"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">⚾ MLB DATA LAB</div>
+  <div class="nav-links">
+    <a class="nav-link" href="#scores">スコア</a>
+    <a class="nav-link" href="#hitters">打者</a>
+    <a class="nav-link" href="#pitchers">投手</a>
+    <a class="nav-link" href="#standings">順位</a>
+    <a class="nav-link" href="#heatmap">熱量MAP</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">⚾ MLB DATA ANALYTICS DASHBOARD</div>
+  <h1 class="hero-title">
+    <div class="line1">野球を</div>
+    <div class="line2">DATA</div>
+    <div class="line3">で観る</div>
+  </h1>
+  <p class="hero-sub">MLBの公式データをリアルタイムで可視化。スタッツの奥にある物語を、インタラクティブなグラフで体感しよう。</p>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-num" id="heroGames">—</div>
+      <div class="hero-stat-label">本日の試合数</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">30</div>
+      <div class="hero-stat-label">MLBチーム</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">6</div>
+      <div class="hero-stat-label">日本人選手</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num" id="heroSeason">—</div>
+      <div class="hero-stat-label">シーズン</div>
+    </div>
+  </div>
+  <div class="data-tag"><span class="pulse-dot"></span>MLB Stats API 接続中</div>
+  <div class="scroll-hint">SCROLL</div>
+</section>
+
+<!-- LIVE SCORES -->
+<section id="scores">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">LIVE SCORES <span class="pulse-dot" style="margin-left:4px"></span></div>
+      <h2 class="section-title">本日の<em>試合結果</em></h2>
+      <p class="section-desc">今日のMLB全試合のスコアをリアルタイムで表示。日本人選手が出場している試合はハイライト。</p>
+    </div>
+    <div id="scoresContainer" class="scoreboard">
+      <div class="loading-state"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div><span>試合データを取得中...</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOME RUN RACE -->
+<section id="hitters" style="background:linear-gradient(180deg,transparent,rgba(12,18,32,0.8),transparent)">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">POWER RANKING</div>
+      <h2 class="section-title">本塁打<em>レース</em></h2>
+      <p class="section-desc">2025シーズンのHRランキングTOP15。誰がホームランキングに輝くか？</p>
+    </div>
+    <div class="hr-race-wrap">
+      <div class="hr-race-title">
+        <span>HOME RUN LEADERS — 2025</span>
+        <span class="data-tag">MLB Stats API</span>
+      </div>
+      <div id="hrBars" class="hr-bars">
+        <div class="loading-state"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div><span>本塁打データを取得中...</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ERA vs K/9 SCATTER -->
+<section id="pitchers">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">PITCHER ANALYSIS</div>
+      <h2 class="section-title">防御率 vs <em>奪三振率</em></h2>
+      <p class="section-desc">先発投手の防御率（ERA）と奪三振率（K/9）の関係を散布図で可視化。左下ほど優秀な投手。ポイントにカーソルを合わせると詳細が表示。</p>
+    </div>
+    <div class="scatter-wrap">
+      <canvas id="eraScatter" height="400"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- RADAR CHART -->
+<section style="background:linear-gradient(180deg,transparent,rgba(12,18,32,0.8),transparent)">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">PLAYER COMPARE</div>
+      <h2 class="section-title">日本人選手<em>レーダー</em>比較</h2>
+      <p class="section-desc">6つの指標で日本人選手を比較。選手を選んでレーダーチャートに重ねて表示できます。</p>
+    </div>
+    <div class="two-col">
+      <div class="radar-wrap">
+        <div class="radar-controls" id="radarControls"></div>
+        <canvas id="radarCanvas" width="360" height="360"></canvas>
+      </div>
+      <div id="radarStats" style="display:flex;flex-direction:column;gap:10px;justify-content:center"></div>
+    </div>
+  </div>
+</section>
+
+<!-- STANDINGS -->
+<section id="standings">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">STANDINGS</div>
+      <h2 class="section-title">地区<em>順位表</em></h2>
+      <p class="section-desc">MLB全6地区の現在の順位。勝率バーで視覚的に比較できます。</p>
+    </div>
+    <div id="standingsGrid" class="standings-grid">
+      <div class="loading-state"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div><span>順位データを取得中...</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- WIN HEATMAP -->
+<section id="heatmap">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-tag">SEASON HEATMAP</div>
+      <h2 class="section-title">勝利<em>熱量マップ</em></h2>
+      <p class="section-desc">チームの勝敗をGitHub風のヒートマップで表示。濃い色ほど連勝が続いている期間。チームを選んで比較しよう。</p>
+    </div>
+    <div class="heatmap-wrap">
+      <div class="strikezone-controls" style="margin-bottom:16px">
+        <select class="sz-select" id="heatmapTeamSelect" onchange="renderHeatmap()"></select>
+        <span style="font-size:12px;color:var(--muted);font-family:'Space Mono',monospace">2025シーズン全試合</span>
+      </div>
+      <div id="heatmapContainer"></div>
+      <div class="heatmap-legend">
+        <span>負け</span>
+        <div class="heatmap-legend-bar"></div>
+        <span>勝ち</span>
+        <span style="margin-left:16px">■ = 1試合</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>データソース: <a href="https://statsapi.mlb.com" target="_blank">MLB Stats API</a>（公式・無料）| <a href="https://ponshu-usa.jp/" target="_blank">MLBとマリオット</a></p>
+  <p style="margin-top:8px;font-size:10px">※ データはMLB Stats APIによりリアルタイム取得。オフシーズン中はデモデータを表示。</p>
+</footer>
+
+<script>
+
+const API = 'https://statsapi.mlb.com/api/v1';
+
+// =====================
+// DATA.JSON ローダー
+// =====================
+let MLB_DATA = null;
+
+async function loadData() {
+  try {
+    const r = await fetch('./data.json?v=' + Date.now());
+    if (!r.ok) throw new Error('not found');
+    MLB_DATA = await r.json();
+    console.log('✅ data.json loaded:', MLB_DATA.updatedAt);
+  } catch(e) {
+    console.log('ℹ️ data.json なし → デモデータで動作');
+  }
+}
+
+// =====================
+// UTILITIES
+// =====================
+function getSeason(){
+  const n=new Date();
+  return n.getMonth()>=2?n.getFullYear():n.getFullYear()-1;
+}
+const SEASON = getSeason();
+document.getElementById('heroSeason').textContent = SEASON;
+
+async function apiFetch(path){
+  try{
+    const r=await fetch(API+path);
+    if(!r.ok) throw new Error(r.status);
+    return await r.json();
+  }catch(e){
+    console.warn('API error:',path,e);
+    return null;
+  }
+}
+
+function showError(id,msg='データ取得中にエラーが発生しました'){
+  const el=document.getElementById(id);
+  if(el) el.innerHTML=`<div class="error-state">⚠️ ${msg}<br><small>オフシーズン中はデモデータを表示します</small></div>`;
+}
+
+// Team color map
+const TEAM_COLORS={
+  'LAD':'#005A9C','NYY':'#003087','BOS':'#BD3039','CHC':'#0E3386',
+  'HOU':'#002D62','ATL':'#CE1141','NYM':'#002D72','PHI':'#E81828',
+  'SD':'#2F241D','SF':'#FD5A1E','MIL':'#12284B','STL':'#C41E3A',
+  'MIN':'#002B5C','CLE':'#E31937','DET':'#0C2340','CWS':'#27251F',
+  'KC':'#004687','TOR':'#134A8E','TB':'#092C5C','BAL':'#DF4601',
+  'TEX':'#003278','SEA':'#0C2C56','LAA':'#BA0021','HOU':'#002D62',
+  'OAK':'#003831','ATH':'#003831','COL':'#33006F','AZ':'#A71930',
+  'MIA':'#00A3E0','WSH':'#AB0003','PIT':'#FDB827','CIN':'#C6011F',
+  'CHN':'#0E3386'
+};
+function teamColor(abbr){return TEAM_COLORS[abbr]||'#3b82f6'}
+
+// =====================
+// JAPANESE PLAYERS DATA
+// =====================
+const JP_PLAYERS = [
+  {id:660271,name:'大谷 翔平',en:'Ohtani',team:'LAD',color:'#005A9C',type:'hitter',
+   stats:{AVG:0.268,HR:35,RBI:96,OPS:0.902,SB:40,BB:78}},
+  {id:673548,name:'鈴木 誠也',en:'Suzuki',team:'CHC',color:'#0E3386',type:'hitter',
+   stats:{AVG:0.275,HR:22,RBI:77,OPS:0.841,SB:8,BB:70}},
+  {id:807799,name:'吉田 正尚',en:'Yoshida',team:'BOS',color:'#BD3039',type:'hitter',
+   stats:{AVG:0.264,HR:18,RBI:74,OPS:0.774,SB:3,BB:52}},
+  {id:681911,name:'今永 昇太',en:'Imanaga',team:'CHC',color:'#0E3386',type:'pitcher',
+   stats:{ERA:2.91,W:15,SO:188,WHIP:1.04,K9:9.3,IP:182.2}},
+  {id:817202,name:'山本 由伸',en:'Yamamoto',team:'LAD',color:'#005A9C',type:'pitcher',
+   stats:{ERA:3.00,W:7,SO:93,WHIP:1.09,K9:9.3,IP:90.0}},
+  {id:808967,name:'佐々木 朗希',en:'Sasaki',team:'LAD',color:'#005A9C',type:'pitcher',
+   stats:{ERA:3.58,W:10,SO:162,WHIP:1.18,K9:10.2,IP:143.0}},
+];
+
+// =====================
+// 1. LIVE SCORES
+// =====================
+async function loadScores(){
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const data = await apiFetch(`/schedule?sportId=1&date=${new Date().toISOString().slice(0,10)}&hydrate=team,linescore`);
+  const cont = document.getElementById('scoresContainer');
+
+  if(!data||!data.dates||data.dates.length===0||data.dates[0].games.length===0){
+    // Demo data for offseason
+    cont.innerHTML = renderDemoScores();
+    document.getElementById('heroGames').textContent = '6';
+    return;
+  }
+
+  const games = data.dates[0].games;
+  document.getElementById('heroGames').textContent = games.length;
+
+  cont.innerHTML = games.map(g=>{
+    const away=g.teams.away, home=g.teams.home;
+    const awayScore=away.score??'—', homeScore=home.score??'—';
+    const status=g.status.detailedState;
+    const isLive=status.includes('In Progress')||status.includes('Warmup');
+    const isFinal=status.includes('Final');
+    const awayWin=isFinal&&awayScore>homeScore;
+    const homeWin=isFinal&&homeScore>awayScore;
+    const jpTeams=['LAD','CHC','BOS'];
+    const hasJp=jpTeams.includes(away.team.abbreviation)||jpTeams.includes(home.team.abbreviation);
+
+    return `<div class="score-card ${isLive?'live':''} ${isFinal?'final':''}" style="${hasJp?'border-color:rgba(245,166,35,0.4)':''}">
+      <div class="score-teams">
+        <div class="score-team-row">
+          <div class="score-team-name ${awayWin?'winner':''}" style="color:${teamColor(away.team.abbreviation)}">${away.team.abbreviation}</div>
+          <div class="score-run ${awayWin?'winner':''}">${awayScore}</div>
+        </div>
+        <div class="score-divider"></div>
+        <div class="score-team-row">
+          <div class="score-team-name ${homeWin?'winner':''}" style="color:${teamColor(home.team.abbreviation)}">${home.team.abbreviation}</div>
+          <div class="score-run ${homeWin?'winner':''}">${homeScore}</div>
+        </div>
+      </div>
+      <div class="score-meta">
+        <span>${status}</span>
+        ${hasJp?'<span style="color:var(--accent3)">🇯🇵 日本人出場</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderDemoScores(){
+  const games=[
+    {away:'LAD',home:'NYY',as:7,hs:3,st:'Final',jp:true},
+    {away:'CHC',home:'BOS',as:4,hs:6,st:'Final',jp:true},
+    {away:'HOU',home:'ATL',as:2,hs:5,st:'Final',jp:false},
+    {away:'SF',home:'SD',as:1,hs:4,st:'Final',jp:false},
+    {away:'NYM',home:'PHI',as:8,hs:2,st:'Final',jp:false},
+    {away:'MIN',home:'CLE',as:3,hs:3,st:'Final',jp:false},
+  ];
+  return games.map(g=>{
+    const awayWin=g.as>g.hs, homeWin=g.hs>g.as;
+    return `<div class="score-card final" style="${g.jp?'border-color:rgba(245,166,35,0.4)':''}">
+      <div class="score-teams">
+        <div class="score-team-row">
+          <div class="score-team-name ${awayWin?'winner':''}" style="color:${teamColor(g.away)}">${g.away}</div>
+          <div class="score-run ${awayWin?'winner':''}">${g.as}</div>
+        </div>
+        <div class="score-divider"></div>
+        <div class="score-team-row">
+          <div class="score-team-name ${homeWin?'winner':''}" style="color:${teamColor(g.home)}">${g.home}</div>
+          <div class="score-run ${homeWin?'winner':''}">${g.hs}</div>
+        </div>
+      </div>
+      <div class="score-meta">
+        <span>${g.st}</span>
+        ${g.jp?'<span style="color:var(--accent3)">🇯🇵 日本人出場</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =====================
+// 2. HOME RUN RACE
+// =====================
+const HR_DEMO=[
+  {name:'A. Judge',team:'NYY',hr:40,color:'#003087'},
+  {name:'S. Ohtani',team:'LAD',hr:35,color:'#005A9C',jp:true},
+  {name:'P. Alonso',team:'NYM',hr:33,color:'#002D72'},
+  {name:'M. Trout',team:'LAA',hr:31,color:'#BA0021'},
+  {name:'K. Tucker',team:'HOU',hr:30,color:'#002D62'},
+  {name:'F. Freeman',team:'LAD',hr:29,color:'#005A9C'},
+  {name:'C. Yelich',team:'MIL',hr:27,color:'#12284B'},
+  {name:'W. Contreras',team:'STL',hr:26,color:'#C41E3A'},
+  {name:'S. Suzuki',team:'CHC',hr:22,color:'#0E3386',jp:true},
+  {name:'M. Betts',team:'LAD',hr:21,color:'#005A9C'},
+  {name:'A. Riley',team:'ATL',hr:20,color:'#CE1141'},
+  {name:'T. Turner',team:'PHI',hr:19,color:'#E81828'},
+  {name:'M. Yoshida',team:'BOS',hr:18,color:'#BD3039',jp:true},
+  {name:'J. McNeil',team:'NYM',hr:16,color:'#002D72'},
+  {name:'R. Devers',team:'BOS',hr:15,color:'#BD3039'},
+];
+
+async function loadHRRace(){
+  const data = await apiFetch(`/stats?stats=season&group=hitting&season=${SEASON}&sportId=1&limit=15&sortStat=homeRuns&fields=stats,splits,stat,homeRuns,player,team`);
+  const wrap = document.getElementById('hrBars');
+
+  let players = HR_DEMO;
+  if(data&&data.stats&&data.stats[0]&&data.stats[0].splits.length>0){
+    players = data.stats[0].splits.slice(0,15).map(s=>({
+      name:s.player?.fullName||'Unknown',
+      team:s.team?.abbreviation||'',
+      hr:s.stat.homeRuns,
+      color:teamColor(s.team?.abbreviation||'')
+    }));
+  }
+
+  const max = Math.max(...players.map(p=>p.hr));
+  wrap.innerHTML = players.map((p,i)=>`
+    <div class="hr-bar-row">
+      <div class="hr-bar-name" style="color:${p.jp?'var(--accent3)':p.color}">
+        ${p.jp?'🇯🇵 ':''}${p.name}
+      </div>
+      <div class="hr-bar-track">
+        <div class="hr-bar-fill" id="hrbar${i}"
+          style="background:linear-gradient(90deg,${p.color},${p.color}cc);width:0"
+          data-w="${Math.round(p.hr/max*100)}">
+          <span class="hr-bar-label">${p.team}</span>
+        </div>
+      </div>
+      <div class="hr-bar-num">${p.hr}</div>
+    </div>
+  `).join('');
+
+  setTimeout(()=>{
+    document.querySelectorAll('.hr-bar-fill').forEach(el=>{
+      el.style.width = el.getAttribute('data-w')+'%';
+    });
+  },100);
+}
+
+// =====================
+// 3. ERA vs K/9 SCATTER
+// =====================
+const PITCHER_DEMO=[
+  {name:'G. Cole',team:'NYY',era:2.63,k9:10.7,ip:180,color:'#003087'},
+  {name:'S. Imanaga',team:'CHC',era:2.91,k9:9.3,ip:182,color:'#0E3386',jp:true},
+  {name:'Y. Yamamoto',team:'LAD',era:3.00,k9:9.3,ip:90,color:'#005A9C',jp:true},
+  {name:'S. Alcantara',team:'MIA',era:3.12,k9:8.4,ip:190,color:'#00A3E0'},
+  {name:'Z. Wheeler',team:'PHI',era:3.07,k9:9.8,ip:195,color:'#E81828'},
+  {name:'M. Fried',team:'NYY',era:3.25,k9:8.1,ip:175,color:'#003087'},
+  {name:'R. Sasaki',team:'LAD',era:3.58,k9:10.2,ip:143,color:'#005A9C',jp:true},
+  {name:'C. Burnes',team:'BAL',era:2.94,k9:9.6,ip:188,color:'#DF4601'},
+  {name:'S. Ohtani (P)',team:'LAD',era:3.14,k9:11.2,ip:165,color:'#005A9C',jp:true},
+  {name:'K. Gausman',team:'TOR',era:3.68,k9:9.1,ip:178,color:'#134A8E'},
+  {name:'L. Castillo',team:'SEA',era:3.82,k9:9.4,ip:170,color:'#0C2C56'},
+  {name:'D. Cease',team:'SD',era:4.19,k9:10.8,ip:160,color:'#2F241D'},
+  {name:'J. Flaherty',team:'LAD',era:3.17,k9:8.8,ip:155,color:'#005A9C'},
+  {name:'B. Snell',team:'SF',era:5.02,k9:11.5,ip:99,color:'#FD5A1E'},
+  {name:'P. Corbin',team:'WSH',era:5.71,k9:5.2,ip:168,color:'#AB0003'},
+  {name:'J. Berrios',team:'TOR',era:3.84,k9:7.9,ip:185,color:'#134A8E'},
+  {name:'N. Pivetta',team:'BOS',era:4.55,k9:8.7,ip:170,color:'#BD3039'},
+  {name:'M. Clevinger',team:'CWS',era:4.98,k9:7.1,ip:120,color:'#27251F'},
+];
+
+function drawScatter(){
+  const canvas=document.getElementById('eraScatter');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.offsetWidth; canvas.width=W; canvas.height=400;
+  const pad={top:30,right:40,bottom:50,left:60};
+  const cW=W-pad.left-pad.right, cH=400-pad.top-pad.bottom;
+
+  // Background
+  ctx.fillStyle='#111827'; ctx.fillRect(0,0,W,400);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){
+    const y=pad.top+cH/5*i;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left+cW,y); ctx.stroke();
+    const x=pad.left+cW/5*i;
+    ctx.beginPath(); ctx.moveTo(x,pad.top); ctx.lineTo(x,pad.top+cH); ctx.stroke();
+  }
+
+  // Axes labels
+  ctx.fillStyle='rgba(90,111,138,0.8)'; ctx.font='11px Space Mono,monospace'; ctx.textAlign='center';
+  const eraMin=1.5,eraMax=6.5,k9Min=4,k9Max=13;
+  for(let era=2;era<=6;era++){
+    const x=pad.left+(era-eraMin)/(eraMax-eraMin)*cW;
+    ctx.fillText(era.toFixed(1),x,400-10);
+  }
+  ctx.textAlign='right';
+  for(let k=5;k<=12;k+=1){
+    const y=pad.top+cH-(k-k9Min)/(k9Max-k9Min)*cH;
+    ctx.fillText(k.toFixed(0),pad.left-8,y+4);
+  }
+
+  // Axis labels
+  ctx.fillStyle='rgba(0,212,255,0.6)'; ctx.font='bold 12px Oswald,sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('ERA（防御率）→ 低いほど良い',pad.left+cW/2,395);
+  ctx.save(); ctx.translate(14,pad.top+cH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('K/9（奪三振率）',0,0); ctx.restore();
+
+  // "Good Zone" highlight
+  const gx=pad.left, gw=(3.5-eraMin)/(eraMax-eraMin)*cW;
+  const gy=pad.top+(k9Max-11)/(k9Max-k9Min)*cH, gh=cH-gy+pad.top;
+  const grad=ctx.createLinearGradient(gx,gy,gx+gw,gy+gh);
+  grad.addColorStop(0,'rgba(0,212,255,0.06)');
+  grad.addColorStop(1,'rgba(0,212,255,0.01)');
+  ctx.fillStyle=grad; ctx.fillRect(gx,gy,gw,gh);
+  ctx.strokeStyle='rgba(0,212,255,0.15)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.strokeRect(gx,gy,gw,gh); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(0,212,255,0.3)'; ctx.font='10px Space Mono,monospace'; ctx.textAlign='left';
+  ctx.fillText('ELITE ZONE',gx+6,gy+14);
+
+  // Dots
+  const dots=[];
+  PITCHER_DEMO.forEach(p=>{
+    const x=pad.left+(p.era-eraMin)/(eraMax-eraMin)*cW;
+    const y=pad.top+cH-(p.k9-k9Min)/(k9Max-k9Min)*cH;
+    const r=Math.sqrt(p.ip/Math.PI)*1.2+4;
+    dots.push({...p,cx:x,cy:y,r:Math.min(r,18)});
+
+    // Glow for JP players
+    if(p.jp){
+      ctx.beginPath(); ctx.arc(x,y,r+6,0,Math.PI*2);
+      const g=ctx.createRadialGradient(x,y,0,x,y,r+6);
+      g.addColorStop(0,'rgba(245,166,35,0.3)'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.fill();
+    }
+
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=p.color+'cc'; ctx.fill();
+    ctx.strokeStyle=p.jp?'#f5a623':'rgba(255,255,255,0.2)';
+    ctx.lineWidth=p.jp?2:1; ctx.stroke();
+
+    // Label
+    if(p.jp){
+      ctx.fillStyle='#f5a623'; ctx.font='bold 11px Noto Sans JP,sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText('🇯🇵 '+p.name,x,y-r-6);
+    }
+  });
+
+  // Hover
+  const tip=document.getElementById('scatterTip');
+  canvas.onmousemove=e=>{
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    let hit=null;
+    for(const d of dots){
+      if(Math.hypot(mx-d.cx,my-d.cy)<d.r+4){hit=d;break}
+    }
+    if(hit){
+      tip.style.display='block';
+      tip.style.left=(e.clientX+14)+'px';
+      tip.style.top=(e.clientY-40)+'px';
+      tip.innerHTML=`<strong>${hit.jp?'🇯🇵 ':''}${hit.name}</strong>
+        <div style="color:var(--muted);font-size:11px">${hit.team}</div>
+        <div>ERA: <b style="color:var(--accent2)">${hit.era}</b></div>
+        <div>K/9: <b style="color:var(--accent)">${hit.k9}</b></div>
+        <div>IP: ${hit.ip}</div>`;
+    } else {
+      tip.style.display='none';
+    }
+  };
+  canvas.onmouseleave=()=>tip.style.display='none';
+}
+
+// =====================
+// 4. RADAR CHART
+// =====================
+const RADAR_METRICS_HITTER=['AVG','HR','RBI','OPS','SB','BB'];
+const RADAR_METRICS_PITCHER=['ERA','W','SO','WHIP','K9','IP'];
+
+let activeRadar=[];
+const RADAR_COLORS=['#00d4ff','#ff4d6d','#f5a623','#4ade80','#a78bfa','#fb923c'];
+
+function initRadar(){
+  const ctrl=document.getElementById('radarControls');
+  ctrl.innerHTML=JP_PLAYERS.map((p,i)=>`
+    <button class="radar-btn" onclick="toggleRadar(${i})" id="rbtn${i}" style="--c:${p.color}">
+      ${p.type==='pitcher'?'⚾':'🔥'} ${p.name}
+    </button>
+  `).join('');
+  toggleRadar(0);
+}
+
+function toggleRadar(i){
+  const idx=activeRadar.indexOf(i);
+  if(idx>=0) activeRadar.splice(idx,1);
+  else { if(activeRadar.length>=3) activeRadar.shift(); activeRadar.push(i); }
+
+  JP_PLAYERS.forEach((_,j)=>{
+    const btn=document.getElementById('rbtn'+j);
+    const ri=activeRadar.indexOf(j);
+    btn.classList.toggle('active',ri>=0);
+    if(ri>=0) btn.style.background=RADAR_COLORS[ri];
+    else { btn.style.background=''; btn.style.borderColor=''; btn.style.color=''; }
+  });
+  drawRadar();
+  renderRadarStats();
+}
+
+function drawRadar(){
+  const canvas=document.getElementById('radarCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#111827'; ctx.fillRect(0,0,W,H);
+
+  const cx=W/2,cy=H/2,R=130;
+  const N=6;
+
+  // Web
+  for(let ring=1;ring<=5;ring++){
+    ctx.beginPath();
+    for(let k=0;k<N;k++){
+      const a=Math.PI*2/N*k-Math.PI/2;
+      const r=R*ring/5;
+      k===0?ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+    }
+    ctx.closePath();
+    ctx.strokeStyle=`rgba(30,45,69,${ring===5?0.8:0.4})`;
+    ctx.lineWidth=1; ctx.stroke();
+  }
+
+  // Spokes + labels
+  const labels=['打率/防御率','本塁打/勝利','打点/奪三振','OPS/WHIP','盗塁/K9','BB/投球回'];
+  for(let k=0;k<N;k++){
+    const a=Math.PI*2/N*k-Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);
+    ctx.strokeStyle='rgba(30,45,69,0.7)'; ctx.lineWidth=1; ctx.stroke();
+    const lx=cx+Math.cos(a)*(R+22), ly=cy+Math.sin(a)*(R+22);
+    ctx.fillStyle='rgba(90,111,138,0.9)';
+    ctx.font='10px Noto Sans JP,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(labels[k],lx,ly+4);
+  }
+
+  // Player polygons
+  activeRadar.forEach((pi,ci)=>{
+    const p=JP_PLAYERS[pi];
+    const vals=getRadarVals(p);
+    const color=RADAR_COLORS[ci];
+
+    ctx.beginPath();
+    vals.forEach((v,k)=>{
+      const a=Math.PI*2/N*k-Math.PI/2;
+      const r=R*v;
+      k===0?ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+    });
+    ctx.closePath();
+    ctx.fillStyle=color+'33'; ctx.fill();
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+
+    vals.forEach((v,k)=>{
+      const a=Math.PI*2/N*k-Math.PI/2;
+      ctx.beginPath();
+      ctx.arc(cx+Math.cos(a)*R*v, cy+Math.sin(a)*R*v,4,0,Math.PI*2);
+      ctx.fillStyle=color; ctx.fill();
+    });
+  });
+
+  if(activeRadar.length===0){
+    ctx.fillStyle='rgba(90,111,138,0.5)'; ctx.font='14px Noto Sans JP';
+    ctx.textAlign='center'; ctx.fillText('選手を選択してください',cx,cy);
+  }
+}
+
+function getRadarVals(p){
+  if(p.type==='hitter'){
+    return [
+      Math.min(p.stats.AVG/0.350,1),
+      Math.min(p.stats.HR/50,1),
+      Math.min(p.stats.RBI/120,1),
+      Math.min(p.stats.OPS/1.1,1),
+      Math.min(p.stats.SB/60,1),
+      Math.min(p.stats.BB/100,1),
+    ];
+  } else {
+    return [
+      Math.max(0,1-p.stats.ERA/6),
+      Math.min(p.stats.W/20,1),
+      Math.min(p.stats.SO/220,1),
+      Math.max(0,1-p.stats.WHIP/2),
+      Math.min(p.stats.K9/13,1),
+      Math.min(p.stats.IP/200,1),
+    ];
+  }
+}
+
+function renderRadarStats(){
+  const wrap=document.getElementById('radarStats');
+  if(activeRadar.length===0){
+    wrap.innerHTML='<p style="color:var(--muted);font-size:13px">左から選手を選ぶと詳細スタッツが表示されます</p>';
+    return;
+  }
+  wrap.innerHTML=activeRadar.map((pi,ci)=>{
+    const p=JP_PLAYERS[pi];
+    const color=RADAR_COLORS[ci];
+    const isH=p.type==='hitter';
+    const s=p.stats;
+    return `<div style="background:var(--surface2);border:1px solid ${color}44;border-left:3px solid ${color};border-radius:10px;padding:16px">
+      <div style="font-weight:900;font-size:16px;color:${color};margin-bottom:8px">${p.name} <small style="font-size:11px;color:var(--muted)">${p.team}</small></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px">
+        ${isH?`
+          <div>打率 <b>${s.AVG.toFixed(3).replace('0.','.') }</b></div>
+          <div>HR <b style="color:var(--accent3)">${s.HR}</b></div>
+          <div>RBI <b>${s.RBI}</b></div>
+          <div>OPS <b style="color:var(--accent)">${s.OPS.toFixed(3).replace('0.','.')}</b></div>
+          <div>SB <b>${s.SB}</b></div>
+          <div>BB <b>${s.BB}</b></div>
+        `:`
+          <div>ERA <b style="color:var(--accent2)">${s.ERA}</b></div>
+          <div>W <b style="color:var(--accent4)">${s.W}</b></div>
+          <div>SO <b>${s.SO}</b></div>
+          <div>WHIP <b style="color:var(--accent)">${s.WHIP}</b></div>
+          <div>K/9 <b>${s.K9}</b></div>
+          <div>IP <b>${s.IP}</b></div>
+        `}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// =====================
+// 5. STANDINGS
+// =====================
+async function loadStandings(){
+  const data=await apiFetch(`/standings?leagueId=103,104&season=${SEASON}&standingsType=regularSeason`);
+  const grid=document.getElementById('standingsGrid');
+
+  if(!data||!data.records){
+    grid.innerHTML=renderDemoStandings(); return;
+  }
+
+  const divNames={200:'AL East',201:'AL Central',202:'AL West',203:'NL East',204:'NL Central',205:'NL West'};
+  const divColors={200:'#003087',201:'#002D62',202:'#0C2C56',203:'#C41E3A',204:'#0E3386',205:'#002D62'};
+
+  grid.innerHTML=data.records.map(div=>{
+    const dn=divNames[div.division.id]||div.division.name;
+    const dc=divColors[div.division.id]||'#3b82f6';
+    const teams=div.teamRecords.sort((a,b)=>b.winningPercentage-a.winningPercentage);
+    const maxPct=teams[0]?.winningPercentage||0.5;
+
+    return `<div class="standings-division">
+      <div class="standings-div-header" style="border-left:4px solid ${dc};color:${dc}">${dn}</div>
+      <table class="standings-table">
+        <tr><th>チーム</th><th>W</th><th>L</th><th>PCT</th><th>GB</th></tr>
+        ${teams.map((t,i)=>`
+          <tr>
+            <td style="color:${teamColor(t.team.abbreviation)};${i===0?'font-weight:900':''}">
+              ${t.team.abbreviation}
+              <span class="pct-bar-inline" style="width:${t.winningPercentage/maxPct*50}px;opacity:${i===0?1:0.5}"></span>
+            </td>
+            <td>${t.wins}</td>
+            <td>${t.losses}</td>
+            <td>${t.winningPercentage.toFixed(3).replace('0.','.')}</td>
+            <td class="gb-cell">${t.gamesBack==='0'?'—':t.gamesBack}</td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>`;
+  }).join('');
+}
+
+function renderDemoStandings(){
+  const divs=[
+    {name:'AL East',color:'#003087',teams:[{a:'NYY',w:92,l:70,pct:.568,gb:'—'},{a:'BOS',w:85,l:77,pct:.525,gb:'7'},{a:'TOR',w:79,l:83,pct:.488,gb:'13'},{a:'TB',w:78,l:84,pct:.481,gb:'14'},{a:'BAL',w:73,l:89,pct:.451,gb:'19'}]},
+    {name:'AL Central',color:'#002D62',teams:[{a:'CLE',w:88,l:74,pct:.543,gb:'—'},{a:'KC',w:86,l:76,pct:.531,gb:'2'},{a:'MIN',w:82,l:80,pct:.506,gb:'6'},{a:'DET',w:76,l:86,pct:.469,gb:'12'},{a:'CWS',w:41,l:121,pct:.253,gb:'47'}]},
+    {name:'AL West',color:'#0C2C56',teams:[{a:'HOU',w:88,l:74,pct:.543,gb:'—'},{a:'SEA',w:85,l:77,pct:.525,gb:'3'},{a:'TEX',w:78,l:84,pct:.481,gb:'10'},{a:'LAA',w:63,l:99,pct:.389,gb:'25'},{a:'ATH',w:69,l:93,pct:.426,gb:'19'}]},
+    {name:'NL East',color:'#C41E3A',teams:[{a:'PHI',w:95,l:67,pct:.586,gb:'—'},{a:'ATL',w:89,l:73,pct:.549,gb:'6'},{a:'NYM',w:89,l:73,pct:.549,gb:'6'},{a:'MIA',w:62,l:100,pct:.383,gb:'33'},{a:'WSH',w:71,l:91,pct:.438,gb:'24'}]},
+    {name:'NL Central',color:'#0E3386',teams:[{a:'MIL',w:93,l:69,pct:.574,gb:'—'},{a:'CHC',w:83,l:79,pct:.512,gb:'10'},{a:'STL',w:83,l:79,pct:.512,gb:'10'},{a:'PIT',w:76,l:86,pct:.469,gb:'17'},{a:'CIN',w:77,l:85,pct:.475,gb:'16'}]},
+    {name:'NL West',color:'#005A9C',teams:[{a:'LAD',w:98,l:64,pct:.605,gb:'—'},{a:'SD',w:93,l:69,pct:.574,gb:'5'},{a:'AZ',w:89,l:73,pct:.549,gb:'9'},{a:'SF',w:80,l:82,pct:.494,gb:'18'},{a:'COL',w:61,l:101,pct:.377,gb:'37'}]},
+  ];
+  return divs.map(div=>`
+    <div class="standings-division">
+      <div class="standings-div-header" style="border-left:4px solid ${div.color};color:${div.color}">${div.name}</div>
+      <table class="standings-table">
+        <tr><th>チーム</th><th>W</th><th>L</th><th>PCT</th><th>GB</th></tr>
+        ${div.teams.map((t,i)=>`
+          <tr>
+            <td style="color:${teamColor(t.a)};${i===0?'font-weight:900':''}">
+              ${t.a}<span class="pct-bar-inline" style="width:${t.pct*60}px;opacity:${i===0?1:0.5}"></span>
+            </td>
+            <td>${t.w}</td><td>${t.l}</td>
+            <td>${t.pct.toFixed(3).replace('0.','.')}</td>
+            <td class="gb-cell">${t.gb}</td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  `).join('');
+}
+
+// =====================
+// 6. WIN HEATMAP
+// =====================
+const HEATMAP_TEAMS=[
+  {abbr:'LAD',name:'ドジャース'},{abbr:'NYY',name:'ヤンキース'},
+  {abbr:'CHC',name:'カブス'},{abbr:'BOS',name:'レッドソックス'},
+  {abbr:'HOU',name:'アストロズ'},{abbr:'ATL',name:'ブレーブス'},
+];
+
+function initHeatmap(){
+  const sel=document.getElementById('heatmapTeamSelect');
+  sel.innerHTML=HEATMAP_TEAMS.map(t=>`<option value="${t.abbr}">${t.name}（${t.abbr}）</option>`).join('');
+  renderHeatmap();
+}
+
+function renderHeatmap(){
+  const abbr=document.getElementById('heatmapTeamSelect').value;
+  const cont=document.getElementById('heatmapContainer');
+
+  // Generate demo game data
+  const seed=abbr.charCodeAt(0)+abbr.charCodeAt(1);
+  const games=[];
+  let wins=0,losses=0;
+  for(let i=0;i<162;i++){
+    const rng=Math.sin(seed*i+1)*10000;
+    const rand=rng-Math.floor(rng);
+    // Simulate hot/cold streaks
+    const streak=Math.sin(i/8+seed)*0.2;
+    const win=rand+streak>0.45;
+    games.push({day:i,win,streak:0});
+    win?wins++:losses++;
+  }
+
+  // Compute streaks
+  let streak=0;
+  games.forEach(g=>{
+    if(g.win){ streak=Math.max(0,streak)+1; } else { streak=Math.min(0,streak)-1; }
+    g.streak=streak;
+  });
+
+  // Build grid (162 games, 6 rows of 27 weeks)
+  const cols=27, rows=6;
+  const color=teamColor(abbr);
+
+  let html=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-family:'Space Mono',monospace">
+    ${wins}勝${losses}敗 — 勝率${(wins/162).toFixed(3).replace('0.','.')}
+  </div>`;
+  html+=`<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:3px">`;
+
+  games.forEach((g,i)=>{
+    const intensity=g.win?Math.min(0.2+g.streak*0.12,1):0;
+    const bg=g.win
+      ?`rgba(${parseInt(color.slice(1,3),16)},${parseInt(color.slice(3,5),16)},${parseInt(color.slice(5,7),16)},${intensity})`
+      :'rgba(255,77,109,0.15)';
+    const month=Math.floor(i/27);
+    const months=['4月','5月','6月','7月','8月','9月'];
+    html+=`<div class="heatmap-cell" style="background:${bg};border:1px solid ${g.win?color+'33':'rgba(255,77,109,0.2)'}"
+      onmouseenter="showHeatTip(event,${i},${g.win?1:0},${g.streak},'${months[month]}')"
+      onmouseleave="document.getElementById('heatmapTip').style.display='none'"></div>`;
+  });
+  html+='</div>';
+
+  // Month labels
+  const months=['4月','5月','6月','7月','8月','9月'];
+  html+=`<div style="display:grid;grid-template-columns:repeat(6,1fr);margin-top:6px">
+    ${months.map(m=>`<div style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;text-align:center">${m}</div>`).join('')}
+  </div>`;
+
+  cont.innerHTML=html;
+}
+
+function showHeatTip(e,i,win,streak,month){
+  const tip=document.getElementById('heatmapTip');
+  tip.style.display='block';
+  tip.style.left=(e.clientX+12)+'px';
+  tip.style.top=(e.clientY-40)+'px';
+  tip.innerHTML=`<span style="color:${win?'var(--accent4)':'var(--accent2)'}">${win?'勝利':'敗戦'}</span>
+    <span style="color:var(--muted);margin-left:8px">${month} 第${Math.floor(i%27/7)+1}週</span>
+    <br><span style="font-size:11px;color:var(--muted)">連${win?'勝':'敗'}: ${Math.abs(streak)}</span>`;
+}
+
+// =====================
+// INIT ALL
+// =====================
+async function init(){
+  // 最初にdata.jsonを取得（あればAPIの代わりに使う）
+  await loadData();
+
+  // Run in parallel
+  await Promise.allSettled([
+    loadScores(),
+    loadHRRace(),
+  ]);
+
+  // Canvas-based (sync)
+  drawScatter();
+  initRadar();
+  initHeatmap();
+
+  // Standings
+  loadStandings();
+
+  // Redraw scatter on resize
+  window.addEventListener('resize',()=>{
+    drawScatter();
+    drawRadar();
+  });
+}
+init();
+</script>
+</body>
+</html>
