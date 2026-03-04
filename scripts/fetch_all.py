@@ -96,8 +96,8 @@ def main():
                     "gb":   t.get("gamesBack", "-"),
                 })
             out["standings"].append({
-                "divId":   div["division"]["id"],
-                "divName": div["division"]["name"],
+                "divId":   div["division"].get("id", 0),
+                "divName": div["division"].get("name", div["division"].get("nameShort", "Unknown")),
                 "teams":   sorted(teams, key=lambda x: -float(x["pct"] or 0)),
             })
     print(f"  standings: {len(out['standings'])} divisions")
