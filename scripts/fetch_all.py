@@ -10,7 +10,7 @@ def get(path):
         r.raise_for_status()
         return r.json()
     except Exception as e:
-        print(f"  warn: {path} → {e}")
+        print(f"  warn: {path} -> {e}")
         return None
 
 def main():
@@ -39,7 +39,7 @@ def main():
             })
     print(f"  hrLeaders: {len(out['hrLeaders'])} players")
 
-    # ③ 先発投手リーダー（ERA × K/9）
+    # ③ 先発投手リーダー
     d = get(f"/stats?stats=season&group=pitching&season={season}&sportId=1&limit=30&sortStat=era&qualifyingOnly=true")
     out["pitchers"] = []
     if d and d.get("stats"):
@@ -60,12 +60,12 @@ def main():
 
     # ④ 日本人選手スタッツ
     JP_IDS = {
-        660271: {"nameJa":"大谷 翔平", "team":"LAD", "type":"hitter"},
-        673548: {"nameJa":"鈴木 誠也", "team":"CHC", "type":"hitter"},
-        807799: {"nameJa":"吉田 正尚", "team":"BOS", "type":"hitter"},
-        681911: {"nameJa":"今永 昇太",  "team":"CHC", "type":"pitcher"},
-        817202: {"nameJa":"山本 由伸",  "team":"LAD", "type":"pitcher"},
-        808967: {"nameJa":"佐々木 朗希","team":"LAD", "type":"pitcher"},
+        660271: {"nameJa": "大谷 翔平",  "team": "LAD", "type": "hitter"},
+        673548: {"nameJa": "鈴木 誠也",  "team": "CHC", "type": "hitter"},
+        807799: {"nameJa": "吉田 正尚",  "team": "BOS", "type": "hitter"},
+        681911: {"nameJa": "今永 昇太",  "team": "CHC", "type": "pitcher"},
+        817202: {"nameJa": "山本 由伸",  "team": "LAD", "type": "pitcher"},
+        808967: {"nameJa": "佐々木 朗希","team": "LAD", "type": "pitcher"},
     }
     out["jpPlayers"] = []
     for pid, info in JP_IDS.items():
@@ -79,7 +79,7 @@ def main():
         out["jpPlayers"].append({**info, "id": pid, "stats": stats})
         print(f"    {info['nameJa']}: OK")
 
-# ⑤ 順位表
+    # ⑤ 順位表
     d = get(f"/standings?leagueId=103,104&season={season}&standingsType=regularSeason")
     out["standings"] = []
     if d and d.get("records"):
@@ -102,29 +102,20 @@ def main():
             })
     print(f"  standings: {len(out['standings'])} divisions")
 
-
-            out["standings"].append({
-                "divId": div["division"]["id"],
-                "divName": div["division"]["name"],
-                "teams": sorted(teams, key=lambda x: -x["pct"]),
-            })
-    print(f"  standings: {len(out['standings'])} divisions")
-
-    # ⑥ チーム別直近20試合（ヒートマップ用）
-    HEATMAP_TEAMS = ["LAD","NYY","CHC","BOS","HOU","ATL"]
+    # ⑥ チーム別試合結果（ヒートマップ用）
+    HEATMAP_TEAMS = ["LAD", "NYY", "CHC", "BOS", "HOU", "ATL"]
     out["teamGames"] = {}
+    td = get(f"/teams?sportId=1&season={season}")
+    team_id_map = {}
+    if td:
+        for t in td.get("teams", []):
+            team_id_map[t["abbreviation"]] = t["id"]
+
     for abbr in HEATMAP_TEAMS:
-        # チームIDを取得
-        td = get(f"/teams?sportId=1&season={season}")
-        team_id = None
-        if td:
-            for t in td.get("teams", []):
-                if t["abbreviation"] == abbr:
-                    team_id = t["id"]
-                    break
+        team_id = team_id_map.get(abbr)
+        games = []
         if team_id:
             sd = get(f"/schedule?sportId=1&season={season}&teamId={team_id}&gameType=R&hydrate=team,linescore")
-            games = []
             if sd and sd.get("dates"):
                 for date in sd["dates"]:
                     for g in date["games"]:
@@ -136,17 +127,17 @@ def main():
                             opp = away if is_home else home
                             games.append({
                                 "date": date["date"],
-                                "win": my["score"] > opp["score"],
+                                "win":  my["score"] > opp["score"],
                                 "score": f"{my['score']}-{opp['score']}",
-                                "opp": opp["team"]["abbreviation"],
+                                "opp":  opp["team"]["abbreviation"],
                             })
-            out["teamGames"][abbr] = games
-            print(f"    {abbr}: {len(games)} games")
+        out["teamGames"][abbr] = games
+        print(f"    {abbr}: {len(games)} games")
 
     # 保存
-    with open("public/data.json", "w", encoding="utf-8") as f:
+    with open("data.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
-    print(f"\n✅ Saved public/data.json ({len(json.dumps(out))//1024}KB)")
+    print(f"\n✅ Saved data.json ({len(json.dumps(out)) // 1024}KB)")
 
 if __name__ == "__main__":
     main()
