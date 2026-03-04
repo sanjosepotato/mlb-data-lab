@@ -28,7 +28,7 @@ jobs:
           ssh-keyscan ${{ secrets.SAKURA_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
           scp -o StrictHostKeyChecking=no \
               -i ~/.ssh/id_rsa \
-              public/data.json \
+              data.json \
               ${{ secrets.SAKURA_USER }}@${{ secrets.SAKURA_HOST }}:${{ secrets.SAKURA_PATH }}/data.json
 
       - name: Commit data.json to repo
