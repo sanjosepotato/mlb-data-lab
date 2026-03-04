@@ -79,23 +79,29 @@ def main():
         out["jpPlayers"].append({**info, "id": pid, "stats": stats})
         print(f"    {info['nameJa']}: OK")
 
-    # ⑤ 順位表
+# ⑤ 順位表
     d = get(f"/standings?leagueId=103,104&season={season}&standingsType=regularSeason")
-
     out["standings"] = []
-        if d and d.get("records"):
-            for div in d["records"]:
-                teams = []
-                for t in div["teamRecords"]:
-                    team_info = t.get("team", {})
-                    teams.append({
-                        "abbr": team_info.get("abbreviation", team_info.get("teamCode", "???")),
-                        "name": team_info.get("teamName", team_info.get("name", "Unknown")),
-                        "w":    t.get("wins", 0),
-                        "l":    t.get("losses", 0),
-                        "pct":  t.get("winningPercentage", 0),
-                        "gb":   t.get("gamesBack", "-"),
-                    })
+    if d and d.get("records"):
+        for div in d["records"]:
+            teams = []
+            for t in div["teamRecords"]:
+                team_info = t.get("team", {})
+                teams.append({
+                    "abbr": team_info.get("abbreviation", team_info.get("teamCode", "???")),
+                    "name": team_info.get("teamName", team_info.get("name", "Unknown")),
+                    "w":    t.get("wins", 0),
+                    "l":    t.get("losses", 0),
+                    "pct":  t.get("winningPercentage", 0),
+                    "gb":   t.get("gamesBack", "-"),
+                })
+            out["standings"].append({
+                "divId":   div["division"]["id"],
+                "divName": div["division"]["name"],
+                "teams":   sorted(teams, key=lambda x: -float(x["pct"] or 0)),
+            })
+    print(f"  standings: {len(out['standings'])} divisions")
+
 
             out["standings"].append({
                 "divId": div["division"]["id"],
