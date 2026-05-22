@@ -26,18 +26,18 @@ def main():
     out["scores"] = d["dates"][0]["games"] if d and d.get("dates") else []
     print(f"  scores: {len(out['scores'])} games")
 
-    # ② HR ランキング TOP15
+# ② HR ランキング TOP15
     d = get(f"/stats?stats=season&group=hitting&season={season}&sportId=1&limit=15&sortStat=homeRuns")
     out["hrLeaders"] = []
     if d and d.get("stats"):
         for s in d["stats"][0].get("splits", []):
+            team_info = s.get("team", {})  # ✅ チーム情報を安全に取得
             out["hrLeaders"].append({
                 "name": s["player"]["fullName"],
-                "team": s["team"]["abbreviation"],
+                "team": team_info.get("abbreviation") or team_info.get("teamCode", "???"),  # ✅ フォールバック追加
                 "hr":   s["stat"]["homeRuns"],
                 "avg":  s["stat"].get("avg", ".000"),
             })
-    print(f"  hrLeaders: {len(out['hrLeaders'])} players")
 
     # ③ 先発投手リーダー
     d = get(f"/stats?stats=season&group=pitching&season={season}&sportId=1&limit=30&sortStat=era&qualifyingOnly=true")
@@ -45,18 +45,18 @@ def main():
     if d and d.get("stats"):
         for s in d["stats"][0].get("splits", []):
             st = s["stat"]
+            team_info = s.get("team", {})  # ✅ 同様に修正
             ip = float(st.get("inningsPitched", 0) or 0)
             so = int(st.get("strikeOuts", 0) or 0)
             out["pitchers"].append({
                 "name": s["player"]["fullName"],
-                "team": s["team"]["abbreviation"],
+                "team": team_info.get("abbreviation") or team_info.get("teamCode", "???"),  # ✅
                 "era":  float(st.get("era", 0)),
                 "whip": float(st.get("whip", 0)),
                 "k9":   round(so / ip * 9, 1) if ip > 0 else 0,
                 "ip":   ip,
                 "so":   so,
             })
-    print(f"  pitchers: {len(out['pitchers'])} players")
 
     # ④ 日本人選手スタッツ
     JP_IDS = {
