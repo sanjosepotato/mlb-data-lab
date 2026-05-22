@@ -27,17 +27,20 @@ def main():
     print(f"  scores: {len(out['scores'])} games")
 
 # ② HR ランキング TOP15
-    d = get(f"/stats?stats=season&group=hitting&season={season}&sportId=1&limit=15&sortStat=homeRuns")
-    out["hrLeaders"] = []
-    if d and d.get("stats"):
-        for s in d["stats"][0].get("splits", []):
-            team_info = s.get("team", {})  # ✅ チーム情報を安全に取得
-            out["hrLeaders"].append({
-                "name": s["player"]["fullName"],
-                "team": team_info.get("abbreviation") or team_info.get("teamCode", "???"),  # ✅ フォールバック追加
-                "hr":   s["stat"]["homeRuns"],
-                "avg":  s["stat"].get("avg", ".000"),
-            })
+d = get(f"/stats?stats=season&group=hitting&season={season}&sportId=1&limit=15&sortStat=homeRuns")
+out["hrLeaders"] = []
+if d and d.get("stats"):
+    splits = d["stats"][0].get("splits", [])
+    if splits:
+        print("DEBUG team keys:", list(splits[0].get("team", {}).keys()))  # ← 追加
+    for s in splits:
+        team_info = s.get("team", {})
+        out["hrLeaders"].append({
+            "name": s["player"]["fullName"],
+            "team": team_info.get("abbreviation") or team_info.get("teamCode") or team_info.get("name", "???"),
+            "hr":   s["stat"]["homeRuns"],
+            "avg":  s["stat"].get("avg", ".000"),
+        })
 
     # ③ 先発投手リーダー
     d = get(f"/stats?stats=season&group=pitching&season={season}&sportId=1&limit=30&sortStat=era&qualifyingOnly=true")
