@@ -2,35 +2,47 @@ name: MLB Data Lab — Daily Update
 
 on:
   schedule:
-    - cron: '0 1 * * *'   # 毎日 日本時間 AM10:00
+    - cron: '0 1 * * *'   # 毎日 日本時間 AM10:00 (UTC 01:00)
   workflow_dispatch:        # 手動実行も可能
 
 jobs:
   update:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4.2.2      # v4.2.2 = Node.js 24対応済み
-      - uses: actions/setup-python@v5.6.0  # v5.6.0 = Node.js 24対応済み
-      - uses: actions/setup-python@v5
+      # ── 1. チェックアウト ──────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python セットアップ ────────────────────────────
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - run: pip install requests
+      # ── 3. 依存ライブラリ ─────────────────────────────────
+      - name: Install dependencies
+        run: pip install requests
 
+      # ── 4. データ取得 ─────────────────────────────────────
       - name: Fetch all MLB data
         run: python scripts/fetch_all.py
 
+      # ── 5. さくらサーバーへデプロイ ──────────────────────
       - name: Deploy to Sakura server
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SAKURA_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan ${{ secrets.SAKURA_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+          # data.json のみ（HTMLはFTPで手動アップロード）
           scp -o StrictHostKeyChecking=no \
               -i ~/.ssh/id_rsa \
               data.json \
               ${{ secrets.SAKURA_USER }}@${{ secrets.SAKURA_HOST }}:${{ secrets.SAKURA_PATH }}/data.json
 
+      # ── 6. data.json をリポジトリにコミット ──────────────
       - name: Commit data.json to repo
         run: |
           git config --local user.email "action@github.com"
