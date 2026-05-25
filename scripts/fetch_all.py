@@ -168,51 +168,59 @@ def main():
         print(f"    {player['name']}: {len(progression)} games, {cumulative} HR")
     print(f"  hrProgression: {len(out['hrProgression'])} players")
 
-    # ⑧ HR飛距離・打球速度（Statcast API）
+   # ⑧ HR飛距離・打球速度（Baseball Savant Statcast）
     print("  Fetching HR distance data...")
     out["hrDistance"] = []
     try:
-        # Baseball Savant / Statcast のパブリックAPIを使用
-        savant_url = (
-            f"https://baseballsavant.mlb.com/statcast_search/csv?"
-            f"hfPT=&hfAB=home+run%7C&hfGT=R%7C&hfPR=&hfZ=&hfStadium=&"
-            f"hfBBL=&hfNewZones=&hfPull=&hfC=&hfSea={season}%7C&hfSit=&"
-            f"player_type=batter&hfOuts=&hfOpponent=&pitcher_throws=&"
-            f"batter_stands=&hfSA=&game_date_gt=&game_date_lt=&"
-            f"hfMo=&hfTeam=&home_road=&hfRO=&position=&"
-            f"hfInfield=&hfOutfield=&hfInn=&hfBBT=&hfFlag=&"
-            f"metric_1=&group_by=name&min_pitches=0&min_results=0&"
-            f"min_pas=0&sort_col=hit_distance_sc&player_event_sort=api_p_release_speed&"
-            f"sort_order=desc&chk_stats_hit_distance_sc=on&"
-            f"chk_stats_launch_speed=on&chk_stats_launch_angle=on&"
-            f"chk_stats_api_game_date=on&type=details&"
-        )
         import csv, io
-        r = requests.get(savant_url, timeout=30)
+        # Statcast search: HRのみ、今シーズン、飛距離降順
+        savant_url = (
+            f"https://baseballsavant.mlb.com/statcast_search/csv"
+            f"?hfAB=home+run%7C"
+            f"&hfGT=R%7C"
+            f"&hfSea={season}%7C"
+            f"&player_type=batter"
+            f"&sort_col=hit_distance_sc"
+            f"&sort_order=desc"
+            f"&min_results=0"
+            f"&type=details"
+            f"&chk_stats_hit_distance_sc=on"
+            f"&chk_stats_launch_speed=on"
+            f"&chk_stats_launch_angle=on"
+        )
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; mlb-data-lab/1.0)"}
+        r = requests.get(savant_url, timeout=30, headers=headers)
         r.raise_for_status()
+
         reader = csv.DictReader(io.StringIO(r.text))
         rows = list(reader)
-        # 飛距離でソートして上位10件
+        print(f"    Statcast rows: {len(rows)}, cols: {list(rows[0].keys())[:8] if rows else 'none'}")
+
         rows_with_dist = [
             row for row in rows
-            if row.get("hit_distance_sc") and row["hit_distance_sc"].strip()
+            if row.get("hit_distance_sc") and row["hit_distance_sc"].strip().lstrip('-').isdigit()
+            and float(row["hit_distance_sc"]) > 300
         ]
         rows_sorted = sorted(
             rows_with_dist,
-            key=lambda x: float(x["hit_distance_sc"] or 0),
+            key=lambda x: float(x["hit_distance_sc"]),
             reverse=True
         )[:10]
+
         for row in rows_sorted:
             dist_ft = float(row.get("hit_distance_sc") or 0)
-            ev      = float(row.get("launch_speed") or 0)
-            angle   = float(row.get("launch_angle") or 0)
-            date    = row.get("game_date") or ""
-            name    = row.get("player_name") or ""
-            # player_nameは "Last, First" 形式なので変換
+            ev      = float(row.get("launch_speed")    or 0)
+            angle   = float(row.get("launch_angle")    or 0)
+            date    = row.get("game_date", "")
+            name    = row.get("player_name", "")
+            # "Last, First" → "First Last"
             if "," in name:
                 parts = name.split(", ")
-                name = parts[1] + " " + parts[0]
-            team = row.get("home_team") or row.get("away_team") or ""
+                name = parts[1].strip() + " " + parts[0].strip()
+            # チームはbatter_team列、なければhome_team/away_team
+            team = (row.get("batter_team")
+                 or row.get("home_team")
+                 or row.get("away_team", "???"))
             out["hrDistance"].append({
                 "name":  name,
                 "team":  team,
@@ -222,6 +230,7 @@ def main():
                 "date":  date,
             })
         print(f"  hrDistance: {len(out['hrDistance'])} records")
+
     except Exception as e:
         print(f"  warn: hrDistance -> {e}")
         out["hrDistance"] = []
