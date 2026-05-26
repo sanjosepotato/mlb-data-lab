@@ -1,6 +1,6 @@
 {
   "season": 2026,
-  "updatedAt": "2026年05月26日 13:55 JST",
+  "updatedAt": "2026年05月26日 22:03 JST",
   "scores": [
     {
       "gamePk": 824434,
@@ -1115,16 +1115,16 @@
         },
         "defense": {
           "team": {
-            "id": 146,
-            "name": "Miami Marlins",
-            "link": "/api/v1/teams/146"
+            "id": 141,
+            "name": "Toronto Blue Jays",
+            "link": "/api/v1/teams/141"
           }
         },
         "offense": {
           "team": {
-            "id": 141,
-            "name": "Toronto Blue Jays",
-            "link": "/api/v1/teams/141"
+            "id": 146,
+            "name": "Miami Marlins",
+            "link": "/api/v1/teams/146"
           }
         }
       },
@@ -2964,22 +2964,6 @@
         "hr": 13,
         "avg": ".239",
         "ops": ".888"
-      },
-      {
-        "id": 807799,
-        "name": "Masataka Yoshida",
-        "team": "BOS",
-        "hr": 1,
-        "avg": ".263",
-        "ops": ".734"
-      },
-      {
-        "id": 672960,
-        "name": "Kazuma Okamoto",
-        "team": "TOR",
-        "hr": 10,
-        "avg": ".215",
-        "ops": ".697"
       }
     ],
     "NL": [
@@ -3062,22 +3046,6 @@
         "hr": 12,
         "avg": ".280",
         "ops": ".942"
-      },
-      {
-        "id": 660271,
-        "name": "Shohei Ohtani",
-        "team": "LAD",
-        "hr": 8,
-        "avg": ".273",
-        "ops": ".879"
-      },
-      {
-        "id": 673548,
-        "name": "Seiya Suzuki",
-        "team": "CHC",
-        "hr": 7,
-        "avg": ".240",
-        "ops": ".748"
       }
     ],
     "combined": [
@@ -3203,6 +3171,58 @@
       }
     ]
   },
+  "jpHitters": [
+    {
+      "id": 660271,
+      "name": "Shohei Ohtani",
+      "team": "LAD",
+      "league": "NL",
+      "hr": 8,
+      "avg": ".273",
+      "ops": ".879",
+      "inRanking": false
+    },
+    {
+      "id": 673548,
+      "name": "Seiya Suzuki",
+      "team": "CHC",
+      "league": "NL",
+      "hr": 7,
+      "avg": ".240",
+      "ops": ".748",
+      "inRanking": false
+    },
+    {
+      "id": 807799,
+      "name": "Masataka Yoshida",
+      "team": "BOS",
+      "league": "AL",
+      "hr": 1,
+      "avg": ".263",
+      "ops": ".734",
+      "inRanking": false
+    },
+    {
+      "id": 808959,
+      "name": "Munetaka Murakami",
+      "team": "CWS",
+      "league": "AL",
+      "hr": 18,
+      "avg": ".235",
+      "ops": ".914",
+      "inRanking": true
+    },
+    {
+      "id": 672960,
+      "name": "Kazuma Okamoto",
+      "team": "TOR",
+      "league": "AL",
+      "hr": 10,
+      "avg": ".215",
+      "ops": ".697",
+      "inRanking": false
+    }
+  ],
   "pitchers": [
     {
       "name": "Cam Schlittler",
@@ -3492,7 +3512,7 @@
         "kbb": 5.8,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 64
       },
       {
         "id": 607259,
@@ -3509,7 +3529,7 @@
         "kbb": 3.0,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 60
       },
       {
         "id": 663436,
@@ -3526,7 +3546,7 @@
         "kbb": 5.5,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 70
       },
       {
         "id": 800048,
@@ -3543,7 +3563,7 @@
         "kbb": 3.7,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 36
       },
       {
         "id": 667755,
@@ -3560,7 +3580,7 @@
         "kbb": 2.7,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 55
       },
       {
         "id": 608379,
@@ -3577,7 +3597,7 @@
         "kbb": 2.7,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 82
       },
       {
         "id": 656876,
@@ -3594,7 +3614,7 @@
         "kbb": 5.1,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 50
       }
     ],
     "NL": [
@@ -3613,7 +3633,7 @@
         "kbb": 5.4,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 73
       },
       {
         "id": 694819,
@@ -3630,7 +3650,7 @@
         "kbb": 5.3,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 55
       },
       {
         "id": 695505,
@@ -3647,7 +3667,7 @@
         "kbb": 3.6,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 70
       },
       {
         "id": 519242,
@@ -3664,7 +3684,7 @@
         "kbb": 5.1,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 90
       },
       {
         "id": 693821,
@@ -3681,7 +3701,7 @@
         "kbb": 2.9,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 73
       },
       {
         "id": 593958,
@@ -3698,7 +3718,7 @@
         "kbb": 1.9,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 50
       },
       {
         "id": 700241,
@@ -3715,7 +3735,7 @@
         "kbb": 3.1,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 60
       },
       {
         "id": 694973,
@@ -3732,7 +3752,7 @@
         "kbb": 7.2,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 45
       },
       {
         "id": 681911,
@@ -3766,7 +3786,7 @@
         "kbb": 4.2,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 88
       },
       {
         "id": 808967,
@@ -3783,7 +3803,7 @@
         "kbb": 4.5,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 80
       },
       {
         "id": 608372,
@@ -3800,7 +3820,7 @@
         "kbb": 1.9,
         "fip": 0.0,
         "war": 0.0,
-        "qs": 0
+        "qs": 30
       }
     ]
   },
