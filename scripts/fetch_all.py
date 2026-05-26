@@ -83,6 +83,7 @@ def main():
         print(f"    {league_key}: {len(out['hrLeaders'][league_key])} players")
 
     # 日本人野手を強制追加（圏外でも必ずペース換算に表示）
+    # hrLeadersには混ぜず、別フィールド jpHitters として保存
     JP_HITTER_IDS = {
         660271: {"name": "Shohei Ohtani",     "team": "LAD", "league": "NL"},
         673548: {"name": "Seiya Suzuki",       "team": "CHC", "league": "NL"},
@@ -91,9 +92,8 @@ def main():
         672960: {"name": "Kazuma Okamoto",     "team": "TOR", "league": "AL"},
     }
     existing_ids = {p["id"] for p in out["hrLeaders"]["AL"] + out["hrLeaders"]["NL"]}
+    out["jpHitters"] = []
     for pid, info in JP_HITTER_IDS.items():
-        if pid in existing_ids:
-            continue
         dj = get(f"/people/{pid}/stats?stats=season&group=hitting&season={season}")
         hr_val = 0
         avg_val = ".000"
@@ -105,12 +105,17 @@ def main():
                 hr_val  = int(st.get("homeRuns", 0) or 0)
                 avg_val = st.get("avg", ".000")
                 ops_val = st.get("ops", ".000")
-        entry = {"id": pid, "name": info["name"], "team": info["team"],
-                 "hr": hr_val, "avg": avg_val, "ops": ops_val}
-        out["hrLeaders"][info["league"]].append(entry)
-        print(f"    JP追加: {info['name']} {hr_val}HR")
+        in_ranking = pid in existing_ids
+        out["jpHitters"].append({
+            "id": pid, "name": info["name"], "team": info["team"],
+            "league": info["league"], "hr": hr_val,
+            "avg": avg_val, "ops": ops_val,
+            "inRanking": in_ranking,  # hrLeadersに入っているかどうか
+        })
+        status = "ランキング内" if in_ranking else "ランク外"
+        print(f"    JP野手: {info['name']} {hr_val}HR ({status})")
 
-    # 合算（HR降順 TOP15）
+    # 合算（HR降順 TOP15）- 日本人は含まない純粋なランキング
     combined = out["hrLeaders"]["AL"] + out["hrLeaders"]["NL"]
     out["hrLeaders"]["combined"] = sorted(combined, key=lambda x: x["hr"], reverse=True)[:15]
     print(f"    combined: {len(out['hrLeaders']['combined'])} players")
@@ -151,18 +156,40 @@ def main():
         808967: {"name": "Roki Sasaki",        "team": "LAD", "league": "NL"},
         608372: {"name": "Kodai Senga",        "team": "COL", "league": "NL"},
     }
-    # 注目選手（Paul Skenes等）
+    # 注目選手（規定投球回未達でも表示したい選手）
     NOTABLE_PITCHER_IDS = {
-        694973: {"name": "Paul Skenes", "team": "PIT", "league": "NL"},
+        694973: {"name": "Paul Skenes",   "team": "PIT", "league": "NL"},
+        592789: {"name": "Gerrit Cole",   "team": "NYY", "league": "AL"},
+        477132: {"name": "Zack Wheeler",  "team": "PHI", "league": "NL"},
+        543037: {"name": "Corbin Burnes", "team": "BAL", "league": "AL"},
     }
     MIN_IP = 40.0  # シーズン序盤は低めに設定
 
-    def build_pitcher_entry(pid, s, is_jp=False):
+    def calc_qs(pid, season):
+        """gameLogからQS（6回以上・自責3以下）を計算して割合(%)を返す"""
+        gl = get(f"/people/{pid}/stats?stats=gameLog&group=pitching&season={season}&gameType=R")
+        if not gl or not gl.get("stats"):
+            return 0
+        splits = gl["stats"][0].get("splits", [])
+        gs = [s for s in splits if int(s["stat"].get("gamesStarted", 0)) > 0]
+        if not gs:
+            return 0
+        qs_count = 0
+        for s in gs:
+            st  = s["stat"]
+            ip  = float(st.get("inningsPitched", 0) or 0)
+            er  = int(st.get("earnedRuns", 0) or 0)
+            if ip >= 6.0 and er <= 3:
+                qs_count += 1
+        return round(qs_count / len(gs) * 100) if gs else 0
+
+    def build_pitcher_entry(pid, s, is_jp=False, compute_qs=False):
         st        = s["stat"]
         team_info = s.get("team", {})
         ip_raw    = float(st.get("inningsPitched", 0) or 0)
         so_val    = int(st.get("strikeOuts", 0) or 0)
         bb_val    = int(st.get("baseOnBalls", 0) or 0)
+        qs_val    = calc_qs(pid, season) if compute_qs else 0
         return {
             "id":   pid,
             "name": s["player"]["fullName"],
@@ -176,9 +203,9 @@ def main():
             "k9":   round(so_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0,
             "bb9":  round(bb_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0,
             "kbb":  round(so_val / bb_val, 1)     if bb_val > 0 else 0.0,
-            "fip":  0.0,  # Stats APIでは取得不可
-            "war":  0.0,  # Stats APIでは取得不可
-            "qs":   0,    # Stats APIでは取得不可
+            "fip":  0.0,   # Stats APIでは取得不可
+            "war":  0.0,   # Stats APIでは取得不可
+            "qs":   qs_val,
         }
 
     for league_id, league_key in [(AL_ID, "AL"), (NL_ID, "NL")]:
@@ -199,9 +226,8 @@ def main():
                     continue
                 if len(out["cyYoung"][league_key]) >= 7:
                     break
-                out["cyYoung"][league_key].append(
-                    build_pitcher_entry(pid, s, is_jp)
-                )
+                entry = build_pitcher_entry(pid, s, is_jp, compute_qs=True)
+                out["cyYoung"][league_key].append(entry)
         print(f"    cyYoung {league_key}: {len(out['cyYoung'][league_key])} players")
 
     # 注目選手（Paul Skenes等）を強制追加
@@ -224,9 +250,9 @@ def main():
             "team":   {"abbreviation": info["team"]},
             "stat":   splits[0].get("stat", {}),
         }
-        entry = build_pitcher_entry(pid, s_fake, is_jp=False)
+        entry = build_pitcher_entry(pid, s_fake, is_jp=False, compute_qs=True)
         out["cyYoung"][info["league"]].append(entry)
-        print(f"    注目選手追加: {info['name']} ERA={entry['era']} IP={entry['ip']}")
+        print(f"    注目選手追加: {info['name']} ERA={entry['era']} IP={entry['ip']} QS={entry['qs']}%")
 
     # 日本人投手を強制追加（規定未達でも表示）
     cy_existing = {p["id"] for v in out["cyYoung"].values() for p in v}
@@ -244,9 +270,9 @@ def main():
             "team":   {"abbreviation": info["team"]},
             "stat":   splits[0].get("stat", {}),
         }
-        entry = build_pitcher_entry(pid, s_fake, is_jp=True)
+        entry = build_pitcher_entry(pid, s_fake, is_jp=True, compute_qs=True)
         out["cyYoung"][info["league"]].append(entry)
-        print(f"    JP投手追加: {info['name']} ERA={entry['era']} IP={entry['ip']}")
+        print(f"    JP投手追加: {info['name']} ERA={entry['era']} IP={entry['ip']} QS={entry['qs']}%")
 
     # ⑤ 日本人選手スタッツ
     JP_IDS = {
