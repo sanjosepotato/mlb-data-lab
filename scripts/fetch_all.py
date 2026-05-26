@@ -200,6 +200,7 @@ def main():
             "so":   so_val,
             "whip": float(st.get("whip", 0) or 0),
             "ip":   ip_raw,
+            "gs":   int(st.get("gamesStarted", 0) or 0),
             "k9":   round(so_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0,
             "bb9":  round(bb_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0,
             "kbb":  round(so_val / bb_val, 1)     if bb_val > 0 else 0.0,
