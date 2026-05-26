@@ -43,6 +43,27 @@ def main():
     print("  Fetching HR leaders (AL/NL)...")
     out["hrLeaders"] = {"AL": [], "NL": [], "combined": []}
 
+    # チーム略称の正規化マップ（正式名 → 略称）
+    TEAM_ABBR_MAP = {
+        "Arizona Diamondbacks":"ARI","Atlanta Braves":"ATL","Baltimore Orioles":"BAL",
+        "Boston Red Sox":"BOS","Chicago Cubs":"CHC","Chicago White Sox":"CWS",
+        "Cincinnati Reds":"CIN","Cleveland Guardians":"CLE","Colorado Rockies":"COL",
+        "Detroit Tigers":"DET","Houston Astros":"HOU","Kansas City Royals":"KC",
+        "Los Angeles Angels":"LAA","Los Angeles Dodgers":"LAD","Miami Marlins":"MIA",
+        "Milwaukee Brewers":"MIL","Minnesota Twins":"MIN","New York Mets":"NYM",
+        "New York Yankees":"NYY","Oakland Athletics":"OAK","Philadelphia Phillies":"PHI",
+        "Pittsburgh Pirates":"PIT","San Diego Padres":"SD","San Francisco Giants":"SFG",
+        "Seattle Mariners":"SEA","St. Louis Cardinals":"STL","Tampa Bay Rays":"TB",
+        "Texas Rangers":"TEX","Toronto Blue Jays":"TOR","Washington Nationals":"WSH",
+        "Athletics":"OAK",
+    }
+
+    def normalize_team(team_info):
+        abbr = team_info.get("abbreviation", "")
+        if abbr: return abbr
+        name = team_info.get("name", "")
+        return TEAM_ABBR_MAP.get(name, team_info.get("teamCode", "???").upper())
+
     for league_id, league_key in [(AL_ID, "AL"), (NL_ID, "NL")]:
         d = get(
             f"/stats?stats=season&group=hitting&season={season}"
@@ -51,20 +72,45 @@ def main():
         )
         if d and d.get("stats"):
             for s in d["stats"][0].get("splits", []):
-                team_info = s.get("team", {})
                 out["hrLeaders"][league_key].append({
                     "id":   s["player"]["id"],
                     "name": s["player"]["fullName"],
-                    "team": (team_info.get("abbreviation")
-                             or team_info.get("teamCode")
-                             or team_info.get("name", "???")),
+                    "team": normalize_team(s.get("team", {})),
                     "hr":   s["stat"]["homeRuns"],
                     "avg":  s["stat"].get("avg", ".000"),
                     "ops":  s["stat"].get("ops", ".000"),
                 })
         print(f"    {league_key}: {len(out['hrLeaders'][league_key])} players")
 
-    # 合算（ALとNLをマージしてHR降順 TOP15）
+    # 日本人野手を強制追加（圏外でも必ずペース換算に表示）
+    JP_HITTER_IDS = {
+        660271: {"name": "Shohei Ohtani",     "team": "LAD", "league": "NL"},
+        673548: {"name": "Seiya Suzuki",       "team": "CHC", "league": "NL"},
+        807799: {"name": "Masataka Yoshida",   "team": "BOS", "league": "AL"},
+        808959: {"name": "Munetaka Murakami",  "team": "CWS", "league": "AL"},
+        672960: {"name": "Kazuma Okamoto",     "team": "TOR", "league": "AL"},
+    }
+    existing_ids = {p["id"] for p in out["hrLeaders"]["AL"] + out["hrLeaders"]["NL"]}
+    for pid, info in JP_HITTER_IDS.items():
+        if pid in existing_ids:
+            continue
+        dj = get(f"/people/{pid}/stats?stats=season&group=hitting&season={season}")
+        hr_val = 0
+        avg_val = ".000"
+        ops_val = ".000"
+        if dj and dj.get("stats"):
+            splits = dj["stats"][0].get("splits", [])
+            if splits:
+                st = splits[0]["stat"]
+                hr_val  = int(st.get("homeRuns", 0) or 0)
+                avg_val = st.get("avg", ".000")
+                ops_val = st.get("ops", ".000")
+        entry = {"id": pid, "name": info["name"], "team": info["team"],
+                 "hr": hr_val, "avg": avg_val, "ops": ops_val}
+        out["hrLeaders"][info["league"]].append(entry)
+        print(f"    JP追加: {info['name']} {hr_val}HR")
+
+    # 合算（HR降順 TOP15）
     combined = out["hrLeaders"]["AL"] + out["hrLeaders"]["NL"]
     out["hrLeaders"]["combined"] = sorted(combined, key=lambda x: x["hr"], reverse=True)[:15]
     print(f"    combined: {len(out['hrLeaders']['combined'])} players")
@@ -101,54 +147,83 @@ def main():
     print("  Fetching Cy Young candidates (AL/NL)...")
     out["cyYoung"] = {"AL": [], "NL": []}
 
+    JP_PITCHER_IDS = {
+        817202: {"name": "Yoshinobu Yamamoto", "team": "LAD", "league": "NL"},
+        681911: {"name": "Shota Imanaga",      "team": "CHC", "league": "NL"},
+        660271: {"name": "Shohei Ohtani",      "team": "LAD", "league": "NL"},
+        808967: {"name": "Roki Sasaki",        "team": "LAD", "league": "NL"},
+        608372: {"name": "Kodai Senga",        "team": "COL", "league": "NL"},
+    }
+    MIN_IP = 50.0  # 最低投球回フィルター
+
+    def build_pitcher_entry(pid, s, is_jp=False):
+        st        = s["stat"]
+        team_info = s.get("team", {})
+        ip_raw    = float(st.get("inningsPitched", 0) or 0)
+        so_val    = int(st.get("strikeOuts", 0) or 0)
+        bb_val    = int(st.get("baseOnBalls", 0) or 0)
+        return {
+            "id":   pid,
+            "name": s["player"]["fullName"],
+            "team": normalize_team(team_info),
+            "isJP": is_jp,
+            "w":    int(st.get("wins", 0) or 0),
+            "era":  float(st.get("era", 0) or 0),
+            "so":   so_val,
+            "whip": float(st.get("whip", 0) or 0),
+            "ip":   ip_raw,
+            "k9":   round(so_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0,
+            "bb9":  round(bb_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0,
+            "kbb":  round(so_val / bb_val, 1)     if bb_val > 0 else 0.0,
+            "fip":  0.0,  # Stats APIでは取得不可
+            "war":  0.0,  # Stats APIでは取得不可
+            "qs":   0,    # Stats APIでは取得不可
+        }
+
     for league_id, league_key in [(AL_ID, "AL"), (NL_ID, "NL")]:
         d = get(
             f"/stats?stats=season&group=pitching&season={season}"
-            f"&sportId=1&limit=7&sortStat=era&qualifyingOnly=true"
+            f"&sportId=1&limit=20&sortStat=era&qualifyingOnly=true"
             f"&leagueId={league_id}"
         )
         if d and d.get("stats"):
             for s in d["stats"][0].get("splits", []):
-                pid       = s["player"]["id"]
-                st        = s["stat"]
-                team_info = s.get("team", {})
-                ip_raw    = float(st.get("inningsPitched", 0) or 0)
-                so_val    = int(st.get("strikeOuts", 0) or 0)
-                bb_val    = int(st.get("baseOnBalls", 0) or 0)
-                gs_val    = int(st.get("gamesStarted", 0) or 0)
-                # QS は Stats API に存在しないので 0（将来的に補完）
-                # FIP / WAR も同様
-                k9_val    = round(so_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0
-                bb9_val   = round(bb_val / ip_raw * 9, 1) if ip_raw > 0 else 0.0
-                kbb_val   = round(so_val / bb_val, 1) if bb_val > 0 else 0.0
-
-                # 日本人選手判定
-                JP_IDS = {660271, 681911, 817202, 808967, 608372}
-                is_jp   = pid in JP_IDS
-
-                out["cyYoung"][league_key].append({
-                    "id":   pid,
-                    "name": s["player"]["fullName"],
-                    "team": (team_info.get("abbreviation")
-                             or team_info.get("teamCode")
-                             or team_info.get("name", "???")),
-                    "isJP": is_jp,
-                    # Stats API から取れる指標
-                    "w":    int(st.get("wins", 0) or 0),
-                    "era":  float(st.get("era", 0) or 0),
-                    "so":   so_val,
-                    "whip": float(st.get("whip", 0) or 0),
-                    "ip":   ip_raw,
-                    "k9":   k9_val,
-                    "bb9":  bb9_val,
-                    "kbb":  kbb_val,
-                    # Stats API では取得困難 → 0 フォールバック
-                    # フロント側で「データなし」表示を推奨
-                    "fip":  0.0,
-                    "war":  0.0,
-                    "qs":   0,
-                })
+                pid    = s["player"]["id"]
+                ip_raw = float(s["stat"].get("inningsPitched", 0) or 0)
+                is_jp  = pid in JP_PITCHER_IDS
+                # IP50未満はスキップ（リリーフ混入対策）
+                if ip_raw < MIN_IP:
+                    continue
+                if len(out["cyYoung"][league_key]) >= 7:
+                    break
+                out["cyYoung"][league_key].append(
+                    build_pitcher_entry(pid, s, is_jp)
+                )
         print(f"    cyYoung {league_key}: {len(out['cyYoung'][league_key])} players")
+
+    # 日本人投手を強制追加（規定未達でも表示）
+    cy_existing = {
+        p["id"]
+        for v in out["cyYoung"].values()
+        for p in v
+    }
+    for pid, info in JP_PITCHER_IDS.items():
+        if pid in cy_existing:
+            continue
+        dj = get(f"/people/{pid}/stats?stats=season&group=pitching&season={season}")
+        if not dj or not dj.get("stats"):
+            continue
+        splits = dj["stats"][0].get("splits", [])
+        if not splits:
+            continue
+        s_fake = {
+            "player": {"id": pid, "fullName": info["name"]},
+            "team":   {"abbreviation": info["team"]},
+            "stat":   splits[0].get("stat", {}),
+        }
+        entry = build_pitcher_entry(pid, s_fake, is_jp=True)
+        out["cyYoung"][info["league"]].append(entry)
+        print(f"    JP投手追加: {info['name']} ERA={entry['era']} IP={entry['ip']}")
 
     # ⑤ 日本人選手スタッツ
     JP_IDS = {
@@ -232,6 +307,7 @@ def main():
         print(f"    {abbr}: {len(games)} games")
 
     # ⑧ HR累積推移（combined TOP10 の日別累積 HR）
+    # キーを選手ID（数値）にしてHTMLから引きやすくする
     print("  Fetching HR progression...")
     out["hrProgression"] = {}
     for player in out["hrLeaders"]["combined"][:10]:
@@ -254,7 +330,9 @@ def main():
                 "date": game.get("date", ""),
                 "hr":   cumulative,
             })
-        out["hrProgression"][player["name"]] = {
+        # キーをID文字列にする（JSONはオブジェクトキーが文字列のみ）
+        out["hrProgression"][str(pid)] = {
+            "name": player["name"],
             "team": player["team"],
             "data": progression,
         }
