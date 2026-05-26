@@ -140,10 +140,7 @@ def main():
             })
     print(f"  pitchers: {len(out['pitchers'])} players")
 
-    # ④ サイヤング候補（AL/NL 別 上位7名）
-    #    FIP・WAR・K/BB・BB9・QS は Stats API 単体では取れないため
-    #    取得できる指標（ERA/WHIP/W/SO/IP/K9）だけ入れ、
-    #    FIP/WAR/K/BB/QS はフロントで 0 をフォールバックにする
+    # ④ サイヤング候補（AL/NL 別 上位7名 + 注目選手 + 日本人投手強制追加）
     print("  Fetching Cy Young candidates (AL/NL)...")
     out["cyYoung"] = {"AL": [], "NL": []}
 
@@ -154,7 +151,11 @@ def main():
         808967: {"name": "Roki Sasaki",        "team": "LAD", "league": "NL"},
         608372: {"name": "Kodai Senga",        "team": "COL", "league": "NL"},
     }
-    MIN_IP = 50.0  # 最低投球回フィルター
+    # 注目選手（Paul Skenes等）
+    NOTABLE_PITCHER_IDS = {
+        694973: {"name": "Paul Skenes", "team": "PIT", "league": "NL"},
+    }
+    MIN_IP = 40.0  # シーズン序盤は低めに設定
 
     def build_pitcher_entry(pid, s, is_jp=False):
         st        = s["stat"]
@@ -181,18 +182,20 @@ def main():
         }
 
     for league_id, league_key in [(AL_ID, "AL"), (NL_ID, "NL")]:
+        # qualifyingOnly=false + limit=50 で多めに取得し、IP/ERA条件でフィルタ
         d = get(
             f"/stats?stats=season&group=pitching&season={season}"
-            f"&sportId=1&limit=20&sortStat=era&qualifyingOnly=true"
+            f"&sportId=1&limit=50&sortStat=era&qualifyingOnly=false"
             f"&leagueId={league_id}"
         )
         if d and d.get("stats"):
             for s in d["stats"][0].get("splits", []):
                 pid    = s["player"]["id"]
                 ip_raw = float(s["stat"].get("inningsPitched", 0) or 0)
+                era    = float(s["stat"].get("era", 99) or 99)
                 is_jp  = pid in JP_PITCHER_IDS
-                # IP50未満はスキップ（リリーフ混入対策）
-                if ip_raw < MIN_IP:
+                # IP不足 or ERA異常値（リリーフ投手混入対策）をスキップ
+                if ip_raw < MIN_IP or era >= 9.00:
                     continue
                 if len(out["cyYoung"][league_key]) >= 7:
                     break
@@ -201,12 +204,32 @@ def main():
                 )
         print(f"    cyYoung {league_key}: {len(out['cyYoung'][league_key])} players")
 
+    # 注目選手（Paul Skenes等）を強制追加
+    cy_existing = {p["id"] for v in out["cyYoung"].values() for p in v}
+    for pid, info in NOTABLE_PITCHER_IDS.items():
+        if pid in cy_existing:
+            continue
+        dj = get(f"/people/{pid}/stats?stats=season&group=pitching&season={season}")
+        if not dj or not dj.get("stats"):
+            continue
+        splits = dj["stats"][0].get("splits", [])
+        if not splits:
+            continue
+        ip_raw = float(splits[0].get("stat", {}).get("inningsPitched", 0) or 0)
+        if ip_raw < MIN_IP:
+            print(f"    注目選手スキップ(IP不足): {info['name']} IP={ip_raw}")
+            continue
+        s_fake = {
+            "player": {"id": pid, "fullName": info["name"]},
+            "team":   {"abbreviation": info["team"]},
+            "stat":   splits[0].get("stat", {}),
+        }
+        entry = build_pitcher_entry(pid, s_fake, is_jp=False)
+        out["cyYoung"][info["league"]].append(entry)
+        print(f"    注目選手追加: {info['name']} ERA={entry['era']} IP={entry['ip']}")
+
     # 日本人投手を強制追加（規定未達でも表示）
-    cy_existing = {
-        p["id"]
-        for v in out["cyYoung"].values()
-        for p in v
-    }
+    cy_existing = {p["id"] for v in out["cyYoung"].values() for p in v}
     for pid, info in JP_PITCHER_IDS.items():
         if pid in cy_existing:
             continue
@@ -272,14 +295,31 @@ def main():
             })
     print(f"  standings: {len(out['standings'])} divisions")
 
-    # ⑦ チーム別試合結果（ヒートマップ用）
-    HEATMAP_TEAMS = ["LAD", "NYY", "CHC", "BOS", "HOU", "ATL"]
-    out["teamGames"] = {}
+    # ⑦ チーム別消化試合数（全30球団）+ ヒートマップ用詳細（主要6チーム）
+    # teamGamesは消化試合数（整数）を全球団分保存する
+    print("  Fetching team games...")
     td = get(f"/teams?sportId=1&season={season}")
     team_id_map = {}
     if td:
         for t in td.get("teams", []):
-            team_id_map[t["abbreviation"]] = t["id"]
+            abbr = t.get("abbreviation", "")
+            if abbr:
+                team_id_map[abbr] = t["id"]
+
+    out["teamGames"] = {}
+    # standings から全チームの消化試合数を取得（APIコール1回で済む）
+    st_data = get(f"/standings?leagueId=103,104&season={season}&standingsType=regularSeason")
+    if st_data and st_data.get("records"):
+        for div in st_data["records"]:
+            for t in div["teamRecords"]:
+                abbr = t["team"].get("abbreviation", "")
+                if abbr:
+                    out["teamGames"][abbr] = t.get("wins", 0) + t.get("losses", 0)
+    print(f"    teamGames: {len(out['teamGames'])} teams")
+
+    # ヒートマップ用詳細データ（主要6チームのみ・試合結果リスト）
+    HEATMAP_TEAMS = ["LAD", "NYY", "CHC", "BOS", "HOU", "ATL"]
+    out["teamGameDetails"] = {}
     for abbr in HEATMAP_TEAMS:
         team_id = team_id_map.get(abbr)
         games = []
@@ -303,7 +343,7 @@ def main():
                                 "score": f"{my['score']}-{opp['score']}",
                                 "opp":   opp["team"]["abbreviation"],
                             })
-        out["teamGames"][abbr] = games
+        out["teamGameDetails"][abbr] = games
         print(f"    {abbr}: {len(games)} games")
 
     # ⑧ HR累積推移（combined TOP10 の日別累積 HR）
