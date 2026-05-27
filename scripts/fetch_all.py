@@ -238,7 +238,7 @@ def main():
                 # IP不足 or ERA異常値（リリーフ投手混入対策）をスキップ
                 if ip_raw < MIN_IP or era >= 9.00:
                     continue
-                if len(out["cyYoung"][league_key]) >= 7:
+                if len(out["cyYoung"][league_key]) >= 10:
                     break
                 entry = build_pitcher_entry(pid, s, is_jp, compute_qs=True)
                 out["cyYoung"][league_key].append(entry)
