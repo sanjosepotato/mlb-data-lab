@@ -1,4 +1,3 @@
-
 import json, requests
 from datetime import datetime, timezone, timedelta
 
@@ -357,14 +356,42 @@ def main():
                 team_id_map[abbr] = t["id"]
 
     out["teamGames"] = {}
-    # standings から全チームの消化試合数を取得（APIコール1回で済む）
-    st_data = get(f"/standings?leagueId=103,104&season={season}&standingsType=regularSeason")
-    if st_data and st_data.get("records"):
-        for div in st_data["records"]:
+    # ⑥で取得済みのstandingsデータからW+Lで消化試合数を算出
+    # abbreviationが取れない場合はteamNameから逆引き
+    TEAM_NAME_TO_ABBR = {
+        "D-backs":"ARI","Braves":"ATL","Orioles":"BAL","Red Sox":"BOS",
+        "Cubs":"CHC","White Sox":"CWS","Reds":"CIN","Guardians":"CLE",
+        "Rockies":"COL","Tigers":"DET","Astros":"HOU","Royals":"KC",
+        "Angels":"LAA","Dodgers":"LAD","Marlins":"MIA","Brewers":"MIL",
+        "Twins":"MIN","Mets":"NYM","Yankees":"NYY","Athletics":"OAK",
+        "Phillies":"PHI","Pirates":"PIT","Padres":"SD","Giants":"SFG",
+        "Mariners":"SEA","Cardinals":"STL","Rays":"TB","Rangers":"TEX",
+        "Blue Jays":"TOR","Nationals":"WSH",
+    }
+    # standingsを直接再利用（APIコール不要）
+    st_data2 = get(f"/standings?leagueId=103,104&season={season}&standingsType=regularSeason")
+    if st_data2 and st_data2.get("records"):
+        for div in st_data2["records"]:
             for t in div["teamRecords"]:
-                abbr = t["team"].get("abbreviation", "")
+                team_info = t.get("team", {})
+                abbr = team_info.get("abbreviation", "")
+                # abbreviationが空ならteamNameから逆引き
+                if not abbr:
+                    team_name = team_info.get("teamName", team_info.get("name", ""))
+                    abbr = TEAM_NAME_TO_ABBR.get(team_name, "")
                 if abbr:
                     out["teamGames"][abbr] = t.get("wins", 0) + t.get("losses", 0)
+    # さらにout["standings"]からも補完（already parsedデータを活用）
+    for div in out.get("standings", []):
+        for t in div.get("teams", []):
+            abbr = t.get("abbr", "")
+            if abbr and abbr != "???" and abbr not in out["teamGames"]:
+                out["teamGames"][abbr] = t.get("w", 0) + t.get("l", 0)
+            # abbrが???の場合はnameから逆引き
+            if (not abbr or abbr == "???") and t.get("name"):
+                abbr2 = TEAM_NAME_TO_ABBR.get(t["name"], "")
+                if abbr2 and abbr2 not in out["teamGames"]:
+                    out["teamGames"][abbr2] = t.get("w", 0) + t.get("l", 0)
     print(f"    teamGames: {len(out['teamGames'])} teams")
 
     # ヒートマップ用詳細データ（主要6チームのみ・試合結果リスト）
