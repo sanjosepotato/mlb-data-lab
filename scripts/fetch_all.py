@@ -38,6 +38,30 @@ def main():
     out["scores"] = d["dates"][0]["games"] if d and d.get("dates") else []
     print(f"  scores: {len(out['scores'])} games")
 
+    # ── MIN_IP事前計算（standingsからW+Lで全球団消化試合数を取得）──
+    _st_early = get(f"/standings?leagueId=103,104&season={season}&standingsType=regularSeason")
+    _TNAME = {
+        "D-backs":"ARI","Braves":"ATL","Orioles":"BAL","Red Sox":"BOS",
+        "Cubs":"CHC","White Sox":"CWS","Reds":"CIN","Guardians":"CLE",
+        "Rockies":"COL","Tigers":"DET","Astros":"HOU","Royals":"KC",
+        "Angels":"LAA","Dodgers":"LAD","Marlins":"MIA","Brewers":"MIL",
+        "Twins":"MIN","Mets":"NYM","Yankees":"NYY","Athletics":"OAK",
+        "Phillies":"PHI","Pirates":"PIT","Padres":"SD","Giants":"SFG",
+        "Mariners":"SEA","Cardinals":"STL","Rays":"TB","Rangers":"TEX",
+        "Blue Jays":"TOR","Nationals":"WSH",
+    }
+    _early_games = []
+    if _st_early and _st_early.get("records"):
+        for _div in _st_early["records"]:
+            for _t in _div["teamRecords"]:
+                _g = _t.get("wins", 0) + _t.get("losses", 0)
+                if _g > 0:
+                    _early_games.append(_g)
+    avg_games_early = sum(_early_games) / len(_early_games) if _early_games else 51
+    MIN_IP = round(avg_games_early * 0.70, 1)
+    print(f"  動的MIN_IP: {avg_games_early:.1f}試合 × 70% = {MIN_IP} IP")
+    # ─────────────────────────────────────────────────────────────
+
     # ② HR ランキング（AL/NL 分け + 合算 TOP15）
     #    leagueId を指定して AL / NL 別に取得する
     print("  Fetching HR leaders (AL/NL)...")
@@ -163,20 +187,8 @@ def main():
         477132: {"name": "Zack Wheeler",  "team": "PHI", "league": "NL"},
         543037: {"name": "Corbin Burnes", "team": "BAL", "league": "AL"},
     }
-    # ── 動的MIN_IP計算（チーム平均消化試合数 × 0.70）──────────────
-    avg_games = 51  # フォールバック値
-    if out.get("teamGames"):
-        counts = []
-        for v in out["teamGames"].values():
-            if isinstance(v, int):
-                counts.append(v)           # 新形式: 整数
-            elif isinstance(v, list):
-                counts.append(len(v))      # 旧形式: 試合結果配列
-        if counts:
-            avg_games = sum(counts) / len(counts)
-    MIN_IP = round(avg_games * 0.70, 1)
-    print(f"  動的MIN_IP: {avg_games:.1f}試合 × 70% = {MIN_IP} IP")
-    # ─────────────────────────────────────────────────────────────
+    # MIN_IPはteamGames構築後に計算（後述）
+    MIN_IP = 35.7  # 仮値・後で上書き
 
     def calc_qs(pid, season):
         """gameLogからQS（6回以上・自責3以下）を計算して割合(%)を返す"""
@@ -393,6 +405,14 @@ def main():
                 if abbr2 and abbr2 not in out["teamGames"]:
                     out["teamGames"][abbr2] = t.get("w", 0) + t.get("l", 0)
     print(f"    teamGames: {len(out['teamGames'])} teams")
+
+    # ── 動的MIN_IP計算（全30球団の平均消化試合数 × 0.70）──────────
+    # teamGames構築後に計算することで正確な値を使用
+    counts = [v for v in out["teamGames"].values() if isinstance(v, int) and v > 0]
+    avg_games = sum(counts) / len(counts) if counts else 51
+    MIN_IP = round(avg_games * 0.70, 1)
+    print(f"  動的MIN_IP: {avg_games:.1f}試合 × 70% = {MIN_IP} IP")
+    # ─────────────────────────────────────────────────────────────
 
     # ヒートマップ用詳細データ（主要6チームのみ・試合結果リスト）
     HEATMAP_TEAMS = ["LAD", "NYY", "CHC", "BOS", "HOU", "ATL"]
